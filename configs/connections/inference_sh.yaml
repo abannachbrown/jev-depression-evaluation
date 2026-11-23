@@ -1,0 +1,18 @@
+schema_version: 1
+backend_config: configs/backends/inference_sh.yaml
+model_config_file: configs/models/jev-27b.yaml
+state_file: data/examples/jev_citation_state.json
+task_config: configs/tasks/binary_screening.yaml
+
+execution:
+  mode: live
+  allow_paid_calls: true
+  max_states: 1
+  max_questions: 1
+
+screening:
+  binary_threshold: null
+
+output:
+  allow_writes: true
+  root: results/connections

@@ -1,0 +1,37 @@
+
+{
+  "model": "jev-latest",
+  "state": {
+    "study_id": "study_001",
+    "title": "Example publication title",
+    "abstract": "Example abstract text"
+  },
+  "questions": {
+    "primary_research": {
+      "type": "noul",
+      "instructions": "Is this potentially a primary research article presenting original experimental data? Exclude clearly identifiable reviews, editorials, letters, comments, case reports and conference-only abstracts. Retain when the publication type is unclear.",
+      "criteria": {
+        "true": "Potential primary research article or insufficient information to exclude.",
+        "false": "Clearly an excluded publication type."
+      }
+    },
+    "animal_study": {
+      "type": "noul",
+      "instructions": "Does the study potentially investigate living non-human animals? All species, ages and sexes are eligible. Exclude human-only research. Retain if the population is unclear.",
+      "criteria": {
+        "true": "Potential live-animal study or population unclear.",
+        "false": "Clearly human-only or otherwise no live-animal population."
+      }
+    },
+    "in_vivo_experiment": {
+      "type": "noul",
+      "instructions": "Does the study potentially involve an in vivo experimental intervention in animals? Include genetic, surgical, pharmacological, developmental or behavioural manipulation, or combinations of methods. Exclude studies clearly confined to ex vivo, in vitro or in silico investigations, or purely observational studies without an experimental intervention. Retain if uncertain.",
+      "criteria": {
+        "true": "Potential in vivo experimental investigation or insufficient information.",
+        "false": "Clearly non-in-vivo or non-experimental investigation."
+      }
+    },
+    "depression_model": {
+      "type": "noul",
+      "instructions": "Does the study potentially investigate an induced animal model of depression or depressive-like behaviour? Accept relevant behavioural paradigms as potential evidence even without an explicit depression-model claim. Include genetic, surgical, pharmacological, developmental and behavioural models, including comorbid conditions and treatment studies. Exclude only when clearly unrelated to modelling depression, such as anxiety-only studies, without evidence of depressive-like behaviour or depression modelling. Retain ambiguous cases.",
+     

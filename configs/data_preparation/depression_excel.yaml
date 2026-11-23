@@ -1,0 +1,30 @@
+schema_version: 1
+
+source:
+  path: data/Depression_Human_Screening_7008_with_ITEM_ID.xlsx
+  worksheet: Human screening decisions
+  audit_worksheet: Match Audit
+  expected_records: 7008
+  expected_sha256: c46913c123f80004f5254d5e9f873beb2a3dd3420ec03c586bc7a268235e2b5c
+
+columns:
+  study_id: ID
+  title: Title
+  abstract: Abstract
+  inclusion_status: Inclusion Status
+  item_id: ITEM_ID
+
+validation:
+  missing_abstract: warn
+  missing_all_text: warn
+  missing_item_id: warn
+  shared_item_id: warn
+  invalid_label: error
+  duplicate_study_id: error
+
+audit:
+  policy: report_only
+
+output:
+  root: data/private/prepared/depression
+  allow_writes: false

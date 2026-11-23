@@ -1,0 +1,33 @@
+schema_version: 1
+name: synthetic-smoke
+seed: 42
+
+dataset:
+  path: data/examples/states.jsonl
+  root_env: null
+  format: jsonl
+  glob: null
+  expected_count: 2
+  order: sorted
+  shuffle: false
+
+backend: configs/backends/hosted.yaml
+models:
+  - configs/models/jev-9b.yaml
+  - configs/models/jev-27b.yaml
+
+generation:
+  temperature: 0.0
+  max_output_tokens: 512
+
+# Draft request templates are preserved under prompts/drafts/.
+# Define the runnable task after the provider contract and scoring are agreed.
+task:
+  prompt_file: null
+  response_schema_file: null
+  metrics: []
+
+output:
+  root: results
+  resume: true
+  save_raw_responses: true

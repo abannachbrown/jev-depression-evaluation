@@ -1,0 +1,19 @@
+
+{
+  "model": "jev-latest",
+  "state": {
+    "study_id": "study_001",
+    "title": "Example publication title",
+    "abstract": "Example abstract text"
+  },
+  "questions": {
+    "retain_for_fulltext": {
+      "type": "noul",
+      "instructions": "Should this citation be retained for full-text assessment in a systematic review of experimental animal models of depression? Retain primary experimental studies in live animals investigating an induced depression model or depressive-like phenotype, including relevant behavioural models and treatment studies. Exclude clearly non-primary publications, human-only studies, ex vivo, in vitro or in silico studies, and studies clearly not investigating an induced depression model or depressive-like phenotype. Studies examining only anxiety or other unrelated conditions are ineligible. Retain studies investigating both depression and other conditions. Missing or ambiguous information must favour retention. Do not exclude on the basis of missing outcome or control-group details, which are assessed at full-text screening.",
+      "criteria": {
+        "true": "Retain for full-text assessment, including citations with uncertain eligibility.",
+        "false": "Clearly ineligible from the title and abstract."
+      }
+    }
+  }
+}

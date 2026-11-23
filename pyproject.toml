@@ -1,0 +1,50 @@
+[project]
+name = "jev-depression-evaluation"
+version = "0.1.0"
+description = "Reproducible evaluation of AutoTrust JEV models on JSON states"
+readme = "README.md"
+authors = [
+    { name = "abannachbrown", email = "a.bannach.brown@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "pandas>=3.1.1",
+    "pydantic>=2.14.4",
+    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
+    "scikit-learn>=1.9.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "detect-secrets",
+    "ipykernel>=7.4.0",
+    "pre-commit",
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
+notebooks = [
+    "jupyterlab",
+    "matplotlib",
+    "nbclient",
+    "nbformat",
+    "openpyxl",
+]
+
+[tool.uv.build-backend]
+module-name = "jev_eval"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

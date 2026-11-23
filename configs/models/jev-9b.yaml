@@ -1,0 +1,11 @@
+schema_version: 1
+name: jev-9b
+display_name: AutoTrust JEV-9B
+
+hosted:
+  app_id: autotrust/jev-9b
+  model_id_env: JEV_9B_HOSTED_MODEL_ID
+
+local:
+  relative_path: jev-9b
+  revision: null

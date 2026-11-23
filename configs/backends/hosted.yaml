@@ -1,0 +1,18 @@
+schema_version: 1
+type: hosted
+
+# Set once the hosting provider's request/response protocol is confirmed.
+protocol: null
+
+base_url_env: JEV_API_BASE_URL
+api_key_env: JEV_API_KEY
+
+timeout_seconds: 120
+max_concurrency: 1
+
+retry:
+  max_attempts: 4
+  initial_backoff_seconds: 1
+  max_backoff_seconds: 30
+  respect_retry_after: true
+  status_codes: [429, 500, 502, 503, 504]

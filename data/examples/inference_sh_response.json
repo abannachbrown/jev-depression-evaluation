@@ -1,0 +1,13 @@
+{
+  "data": {
+    "id": "synthetic-task-001",
+    "status": 10,
+    "output": {
+      "model": "autotrust/jev-9b",
+      "input_tokens": 100,
+      "nouls": {"retain_for_fulltext": {"noul": 0.8}},
+      "choices": {},
+      "scores": {}
+    }
+  }
+}

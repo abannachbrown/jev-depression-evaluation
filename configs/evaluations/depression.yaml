@@ -1,0 +1,31 @@
+schema_version: 1
+name: depression-evaluation
+seed: 42
+
+dataset:
+  path: data/private/states
+  root_env: JEV_DATA_DIR
+  format: json
+  glob: "*.json"
+  expected_count: null
+  order: sorted
+  shuffle: false
+
+backend: configs/backends/hosted.yaml
+models:
+  - configs/models/jev-9b.yaml
+  - configs/models/jev-27b.yaml
+
+generation:
+  temperature: 0.0
+  max_output_tokens: 512
+
+task:
+  prompt_file: null
+  response_schema_file: null
+  metrics: []
+
+output:
+  root: results
+  resume: true
+  save_raw_responses: true

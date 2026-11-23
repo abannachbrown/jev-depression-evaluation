@@ -1,0 +1,101 @@
+# Python and build artifacts
+__pycache__/
+*.py[cod]
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+
+# Local environments
+.venv/
+.venv*/
+venv/
+env/
+ENV/
+
+# Tool caches and coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.ipynb_checkpoints/
+
+# Environment variables and credentials
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+secrets/
+.secrets/
+credentials/
+credentials.json
+credentials.yaml
+credentials.yml
+*-credentials.json
+*service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+.netrc
+.aws/
+
+# Data: allow only documentation and explicitly named synthetic examples
+/data/*
+!/data/README.md
+!/data/examples/
+/data/examples/*
+!/data/examples/states.jsonl
+!/data/examples/jev_citation_state.json
+
+# Local model storage and caches
+/models/
+/weights/
+/checkpoints/
+.cache/
+.huggingface/
+
+# Model weight files, wherever stored
+*.safetensors
+*.gguf
+*.ggml
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.h5
+
+# Generated evaluation artifacts
+/results/
+/outputs/
+/runs/
+/artifacts/
+/logs/
+*.log
+
+# Machine-specific files
+.DS_Store
+.idea/
+.vscode/
+
+# Notebook runtime files and reviewed notebook templates
+.jupyter/
+.jupyter_cache/
+*.ipynb
+!/notebooks/00_setup.ipynb
+!/notebooks/01_prepare_data.ipynb
+!/notebooks/02_model_connection.ipynb
+!/notebooks/03_run_models.ipynb
+!/notebooks/04_evaluation.ipynb
+!/notebooks/05_study_summary.ipynb
+
+# Handcrafted synthetic evaluation fixtures (never generated model results)
+!/data/examples/reference_labels.jsonl
+!/data/examples/synthetic_predictions.jsonl
+!/data/examples/inference_sh_response.json

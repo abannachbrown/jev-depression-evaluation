@@ -1,0 +1,24 @@
+# Paid requests require RUN_JEV_27B = True in its explicit notebook 03 execution cell.
+schema_version: 1
+evaluation_config: configs/evaluations/pilot_jev_27b.yaml
+scoring_config: configs/scoring/binary.yaml
+execution:
+  mode: hosted
+  allow_paid_calls: true
+  max_records: 10
+  max_logical_requests: 10
+  max_total_attempts: 10
+privacy:
+  display_record_text: false
+  display_raw_responses: false
+output:
+  allow_writes: true
+  root: results/pilots/depression-10
+  run_id: jev-27b-v1-1
+evaluation:
+  reference_labels: data/examples/reference_labels.jsonl
+  demo_predictions: data/examples/synthetic_predictions.jsonl
+inference_sh_pilot:
+  enabled: true
+  sample_manifest: results/pilots/depression-10/sample.json
+  min_request_interval_seconds: 3.1

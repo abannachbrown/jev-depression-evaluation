@@ -1,0 +1,12 @@
+schema_version: 1
+workflow_9b: configs/workflows/full_jev_9b.yaml
+workflow_27b: configs/workflows/full_jev_27b.yaml
+
+# Explicitly choose/document a threshold before calculating binary metrics.
+# Retention uses P(true) >= decision_threshold. No model calls are made here.
+decision_threshold: null
+report_partial_metrics: false
+threshold_note: No decision threshold has been specified.
+
+output_root: results/evaluation/full-depression-v1
+allow_writes: false

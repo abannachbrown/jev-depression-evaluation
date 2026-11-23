@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: research-repository-safety
+        name: Reject notebook outputs, protected files, and likely credentials
+        entry: uv run --locked python scripts/check_repository.py --staged
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]

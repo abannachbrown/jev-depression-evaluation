@@ -1,0 +1,4 @@
+{"study_id":"synthetic_001","model":"jev-9b","status":"success","predictions":{"retain_for_fulltext":true},"mode":"demo"}
+{"study_id":"synthetic_002","model":"jev-9b","status":"success","predictions":{"retain_for_fulltext":true},"mode":"demo"}
+{"study_id":"synthetic_001","model":"jev-27b","status":"success","predictions":{"retain_for_fulltext":false},"mode":"demo"}
+{"study_id":"synthetic_002","model":"jev-27b","status":"success","predictions":{"retain_for_fulltext":false},"mode":"demo"}

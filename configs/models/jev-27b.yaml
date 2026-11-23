@@ -1,0 +1,11 @@
+schema_version: 1
+name: jev-27b
+display_name: AutoTrust JEV-27B v1.1
+
+hosted:
+  app_id: autotrust/jev-27b-v1-1
+  model_id_env: JEV_27B_HOSTED_MODEL_ID
+
+local:
+  relative_path: jev-27b
+  revision: null

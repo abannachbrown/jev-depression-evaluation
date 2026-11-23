@@ -1,0 +1,12 @@
+schema_version: 1
+type: local
+enabled: false
+
+# Deliberately unspecified until a local runtime is selected.
+engine: null
+device: null
+dtype: null
+
+model_root: models
+model_root_env: JEV_MODEL_DIR
+allow_downloads: false

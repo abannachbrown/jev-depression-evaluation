@@ -1,0 +1,15 @@
+schema_version: 1
+analysis_config: configs/evaluations/analysis_full.yaml
+
+# Exploratory choices for colleague review, not locked validation cutoffs.
+target_recall: 0.95
+illustrative_cutoffs:
+  jev-9b: 0.33
+  jev-27b: 0.45
+
+# Metadata only: this notebook does not load or execute the future validation.
+planned_validation_records: 2000
+validation_status: planned_after_colleague_review
+
+allow_writes: false
+output_root: results/summary/interim

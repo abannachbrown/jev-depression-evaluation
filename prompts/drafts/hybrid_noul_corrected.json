@@ -1,0 +1,67 @@
+
+{
+  "model": "jev-latest",
+  "state": {
+    "study_id": "study_001",
+    "title": "Example publication title",
+    "abstract": "Example abstract text"
+  },
+  "questions": {
+    "primary_research": {
+      "type": "noul",
+      "instructions": "Is this potentially a primary research article presenting original experimental data? Exclude clearly identifiable reviews, editorials, letters, comments, case reports and conference-only abstracts. Retain when the publication type is unclear.",
+      "criteria": {
+        "true": "Potential primary research article or insufficient information to exclude.",
+        "false": "Clearly an excluded publication type."
+      }
+    },
+    "animal_study": {
+      "type": "noul",
+      "instructions": "Does the study potentially investigate living non-human animals? All species, ages and sexes are eligible. Exclude human-only research. Retain if the population is unclear.",
+      "criteria": {
+        "true": "Potential live-animal study or population unclear.",
+        "false": "Clearly human-only or otherwise no live-animal population."
+      }
+    },
+    "in_vivo_experiment": {
+      "type": "noul",
+      "instructions": "Does the study potentially involve an in vivo experimental intervention in animals? Include genetic, surgical, pharmacological, developmental or behavioural manipulation, or combinations of methods. Exclude studies clearly confined to ex vivo, in vitro or in silico investigations, or purely observational studies without an experimental intervention. Retain if uncertain.",
+      "criteria": {
+        "true": "Potential in vivo experimental investigation or insufficient information.",
+        "false": "Clearly non-in-vivo or non-experimental investigation."
+      }
+    },
+    "depression_model": {
+      "type": "noul",
+      "instructions": "Does the study potentially investigate an induced animal model of depression or depressive-like behaviour? Accept relevant behavioural paradigms as potential evidence even without an explicit depression-model claim. Include genetic, surgical, pharmacological, developmental and behavioural models, including comorbid conditions and treatment studies. Exclude only when clearly unrelated to modelling depression, such as anxiety-only studies, without evidence of depressive-like behaviour or depression modelling. Retain ambiguous cases.",
+      "criteria": {
+        "true": "Potential animal model of depression or depressive-like phenotype, including relevant behavioural paradigms, or insufficient information to exclude.",
+        "false": "Clearly no induced or investigated depression model or depressive-like phenotype."
+      }
+    },
+    "control_group": {
+      "type": "noul",
+      "instructions": "Does the study report or potentially include a suitable control group? Suitable controls may be animals not exposed to the depression-induction method (including sham or placebo equivalents), animals exposed to the same depression model but not the tested treatment, or untreated/placebo counterparts for drug intervention experiments. At title-and-abstract screening, retain when control information is missing or unclear. This is an exploratory assessment and must not independently cause exclusion in the primary hybrid classification.",
+      "criteria": {
+        "true": "A potentially appropriate comparator is reported, or information is insufficient to rule one out.",
+        "false": "The title or abstract explicitly establishes that no suitable comparator is present."
+      }
+    },
+    "eligible_outcomes": {
+      "type": "noul",
+      "instructions": "Does the study report or potentially measure eligible outcomes? Eligible types include behavioural, anatomical or structural, electrophysiological, histological and neurochemical measures. Genomic, proteomic or metabolomic outcomes may be included alongside eligible measures. Metabolic outcomes as the primary outcome, or solely genomic, proteomic, metabolic or metabolomic outcomes, are ineligible under the protocol. Abstracts may not report all measured outcomes: do not infer absence from non-reporting. This is an exploratory assessment and must not independently cause exclusion in the primary hybrid classification.",
+      "criteria": {
+        "true": "Eligible outcomes are reported or potentially measured, or reporting is insufficient to exclude.",
+        "false": "The title or abstract clearly establishes only ineligible outcomes or another explicit outcome-based exclusion."
+      }
+    },
+    "overall_eligibility": {
+      "type": "noul",
+      "instructions": "Should this citation be retained for full-text assessment in a systematic review of experimental animal models of depression? Retain potentially eligible primary experimental investigations in live non-human animals involving an in vivo intervention and an induced or investigated depression model or depressive-like phenotype, including relevant behavioural paradigms and treatment studies. Exclude only when clear title-and-abstract evidence establishes ineligibility on primary publication type, live-animal population, in vivo experimental manipulation or depression-model grounds. Missing or ambiguous reporting favours retention. Assess control-group and outcome eligibility conservatively, but do not use absent or unclear details about these domains as reasons for exclusion at this stage.",
+      "criteria": {
+        "true": "Retain for full-text assessment, including uncertain or incompletely reported citations.",
+        "false": "Clearly ineligible for full-text assessment on title-and-abstract screening criteria."
+      }
+    }
+  }
+}

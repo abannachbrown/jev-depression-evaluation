@@ -1,0 +1,21 @@
+name: Research workflow checks
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --group notebooks
+      - run: uv run --locked python scripts/check_repository.py --tracked
+      - run: uv run --locked ruff check src tests scripts notebooks
+      - run: uv run --locked ruff format --check src tests scripts notebooks
+      - run: uv run --locked pytest
+        env:
+          MPLBACKEND: Agg
+          JEV_NOTEBOOK_TEST_MODE: "1"

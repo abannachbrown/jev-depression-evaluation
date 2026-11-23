@@ -1,0 +1,23 @@
+schema_version: 1
+evaluation_config: configs/evaluations/synthetic.yaml
+scoring_config: configs/scoring/binary.yaml
+
+execution:
+  mode: demo
+  allow_paid_calls: false
+  max_records: 5
+  max_logical_requests: 10
+  max_total_attempts: 40
+
+privacy:
+  display_record_text: false
+  display_raw_responses: false
+
+output:
+  allow_writes: false
+  root: results
+  run_id: null
+
+evaluation:
+  reference_labels: data/examples/reference_labels.jsonl
+  demo_predictions: data/examples/synthetic_predictions.jsonl
