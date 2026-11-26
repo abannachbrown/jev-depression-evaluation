@@ -1,0 +1,23 @@
+schema_version: 1
+evaluation_config: configs/evaluations/pilot_binary_v1_jev_9b.yaml
+scoring_config: configs/scoring/binary.yaml
+execution:
+  mode: hosted
+  allow_paid_calls: false
+  max_records: 10
+  max_logical_requests: 10
+  max_total_attempts: 10
+privacy:
+  display_record_text: false
+  display_raw_responses: false
+output:
+  allow_writes: false
+  root: results/pilots/screening-v1/binary
+  run_id: pilot-binary-v1-jev-9b
+evaluation:
+  reference_labels: data/private/prepared/depression/c46913c123f8-262309b16d52/reference_labels.csv
+  demo_predictions: data/examples/synthetic_predictions.jsonl
+inference_sh_pilot:
+  enabled: true
+  sample_manifest: results/pilots/screening-v1/binary/sample.json
+  min_request_interval_seconds: 3.1

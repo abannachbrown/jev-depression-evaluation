@@ -12,10 +12,18 @@ from pathlib import Path
 from uuid import uuid4
 
 import pandas as pd
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import (
+    auc,
+    average_precision_score,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_auc_score,
+    roc_curve,
+)
 
 from jev_eval.config import PrerequisiteError
 from jev_eval.data import load_jsonl
+from jev_eval.tasks import primary_question, valid_batch_task
 
 
 @dataclass
@@ -121,7 +129,7 @@ def evaluation_ready_table(plan_9b, result_9b, plan_27b, result_27b, references)
     lookups = [
         {row["study_id"]: row for row in result.predictions} if result else {} for result in results
     ]
-    question = next(iter(plan_9b.task.questions))
+    question = primary_question(plan_9b.project, plan_9b.task)
     rows = []
     for state in plan_9b.states:
         for plan, result, lookup in zip(plans, results, lookups, strict=True):
@@ -148,6 +156,11 @@ def evaluation_ready_table(plan_9b, result_9b, plan_27b, result_27b, references)
                     "model_revision": record.get("model_revision"),
                     "revision_verified": False,
                     "question_id": question,
+                    "approach": plan.project.evaluation.task.approach,
+                    "prompt_version": plan.project.evaluation.task.prompt_version,
+                    "question_probabilities": record.get("probabilities", {})
+                    if record.get("status") == "success"
+                    else {},
                     "probability_true": record.get("probabilities", {}).get(question)
                     if record.get("status") == "success"
                     else None,
@@ -275,19 +288,23 @@ class SavedFullEvaluation:
     coverage: pd.DataFrame
 
 
-def load_saved_full_evaluation(root, settings_path="configs/evaluations/analysis_full.yaml"):
-    """Read completed archives; never create a backend or rebuild a live request plan.
+def load_saved_full_evaluation(
+    root, settings_path="configs/evaluations/analysis_full.yaml", *, allow_missing_runs=False
+):
+    """Read archives without creating a backend, sending requests or resuming.
 
     Original inference fingerprints and code/environment identities are retained.
     Analysis-code changes do not require repeating inference. Scientific inputs,
     requested models, frozen cohort, task and saved output integrity are checked
     independently before constructing read-only views for existing validators.
+    With allow_missing_runs, absent arms receive prospective plans labelled
+    not_run; their current fingerprints are never presented as historical runs.
     """
     from jev_eval.config import FullAnalysisSettings, load_project_config, parse_settings, read_yaml
     from jev_eval.data import load_full_dataset
     from jev_eval.reporting import validate_full_results
-    from jev_eval.runner import RunPlan, load_run
-    from jev_eval.tasks import TaskDefinition
+    from jev_eval.runner import RunPlan, _run_directory, load_run, plan_run
+    from jev_eval.tasks import TaskDefinition, load_task
 
     root = Path(root).resolve()
     settings = parse_settings(FullAnalysisSettings, read_yaml(root / settings_path), settings_path)
@@ -306,6 +323,15 @@ def load_saved_full_evaluation(root, settings_path="configs/evaluations/analysis
             raise PrerequisiteError(
                 "Analysis requires one saved full run per model with an explicit ID."
             )
+        if (
+            allow_missing_runs
+            and not (
+                _run_directory(project, project.workflow.output.run_id) / "manifest.json"
+            ).is_file()
+        ):
+            plans.append(plan_run(project, cohort.states, load_task(project)))
+            results.append(None)
+            continue
         result = load_run(project, project.workflow.output.run_id)
         manifest = result.manifest
         model = project.models[0]
@@ -334,7 +360,10 @@ def load_saved_full_evaluation(root, settings_path="configs/evaluations/analysis
             raise PrerequisiteError("Saved screening question metadata is invalid.") from None
         if task.fingerprint != cohort.manifest["task_sha256"]:
             raise PrerequisiteError("Archived screening instructions differ from the frozen task.")
-        if set(task.questions) != {project.scoring.question}:
+        if (
+            not valid_batch_task(project, task)
+            or primary_question(project, task) not in task.questions
+        ):
             raise PrerequisiteError(
                 "The scoring question must match the archived screening question."
             )
@@ -419,7 +448,7 @@ def evaluate_saved_probabilities(data):
         raise PrerequisiteError(
             "Choose and document decision_threshold before computing binary metrics."
         )
-    question = next(iter(data.plans[0].task.questions))
+    question = primary_question(data.plans[0].project, data.plans[0].task)
     predictions = []
     for row in data.rows.itertuples():
         predictions.append(
@@ -507,6 +536,73 @@ def export_saved_evaluation(data, evaluation, *, allow_writes=False):
     }
     (folder / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return folder
+
+
+@dataclass
+class RankingEvaluation:
+    table: pd.DataFrame
+    roc: pd.DataFrame
+    precision_recall: pd.DataFrame
+
+
+def ranking_readouts(data):
+    """Threshold-independent discrimination on scored, human-labelled pairs.
+
+    Positive means retain for full-text assessment. Unavailable probabilities
+    are never filled with zero. Metrics are withheld unless both human classes
+    occur among scored pairs. PR AUC uses trapezoids; AP is non-interpolated.
+    """
+    records, roc_points, pr_points = [], [], []
+    for model, group in data.rows.groupby("model_name", sort=False):
+        labelled = group.human_label.notna()
+        scored = group.probability_true.notna()
+        paired = group[labelled & scored]
+        truth = paired.human_label.astype(bool)
+        positive = int(truth.sum())
+        negative = len(paired) - positive
+        row = {
+            "model": model,
+            "source_studies": len(group),
+            "human_labelled": int(labelled.sum()),
+            "scored_labelled_pairs": len(paired),
+            "positive_pairs": positive,
+            "negative_pairs": negative,
+            "unscored_studies": int((~scored).sum()),
+            "unscored_positive_labels": int((group.human_label.eq(True) & ~scored).sum()),
+            "missing_human_labels": int((~labelled).sum()),
+            "scored_pair_prevalence": _divide(positive, len(paired)),
+            "roc_auc": float("nan"),
+            "pr_auc_trapezoidal": float("nan"),
+            "average_precision": float("nan"),
+            "status": "no_scored_labelled_pairs"
+            if paired.empty
+            else "requires_both_reference_classes",
+            "metric_scope": "scored human-labelled pairs only; unavailable predictions excluded",
+        }
+        if positive and negative:
+            scores = paired.probability_true.astype(float)
+            fpr, tpr, _ = roc_curve(truth, scores, drop_intermediate=False)
+            precision, recall, _ = precision_recall_curve(truth, scores)
+            row.update(
+                roc_auc=float(roc_auc_score(truth, scores)),
+                pr_auc_trapezoidal=float(auc(recall, precision)),
+                average_precision=float(average_precision_score(truth, scores)),
+                status="available",
+            )
+            roc_points.extend(
+                {"model": model, "false_positive_rate": float(x), "true_positive_rate": float(y)}
+                for x, y in zip(fpr, tpr, strict=True)
+            )
+            pr_points.extend(
+                {"model": model, "recall": float(x), "precision": float(y)}
+                for x, y in zip(recall, precision, strict=True)
+            )
+        records.append(row)
+    return RankingEvaluation(
+        pd.DataFrame(records),
+        pd.DataFrame(roc_points, columns=["model", "false_positive_rate", "true_positive_rate"]),
+        pd.DataFrame(pr_points, columns=["model", "recall", "precision"]),
+    )
 
 
 def threshold_readouts(data, thresholds):

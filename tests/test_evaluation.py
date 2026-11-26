@@ -9,6 +9,7 @@ from jev_eval.data import load_jsonl, load_states, validate_states
 from jev_eval.evaluation import (
     evaluate_predictions,
     load_reference_labels,
+    ranking_readouts,
     select_recall_thresholds,
     threshold_readouts,
     threshold_tradeoff_curve,
@@ -220,3 +221,69 @@ def test_feasible_cohort_wss_keeps_unscored_positive_in_review_workload():
     assert row.unscored_studies == 1 and row.review_queue_with_unscored == 20
     assert row.wss95_cohort_conservative == pytest.approx(20 / 40 - 0.05)
     assert row.wss95_scored == pytest.approx(20 / 39 - 0.05)
+
+
+def test_ranking_metrics_handle_ties_and_exclude_unscored_positives(probability_data):
+    result = ranking_readouts(probability_data)
+    row = result.table.iloc[0]
+    assert row.scored_labelled_pairs == 4
+    assert row.positive_pairs == row.negative_pairs == 2
+    assert row.unscored_studies == row.unscored_positive_labels == 1
+    assert row.roc_auc == 0.75
+    assert row.average_precision == pytest.approx(2 / 3)
+    assert row.pr_auc_trapezoidal == pytest.approx(5 / 6)
+    assert row.scored_pair_prevalence == 0.5
+    assert row.status == "available"
+    assert result.roc.false_positive_rate.iloc[0] == 0
+    assert result.roc.true_positive_rate.iloc[-1] == 1
+    assert result.precision_recall.recall.iloc[0] == 1
+    assert result.precision_recall.recall.iloc[-1] == 0
+
+
+def test_ranking_uses_continuous_scores_and_distinguishes_ap_from_pr_auc():
+    data = SimpleNamespace(
+        rows=pd.DataFrame(
+            {
+                "model_name": ["synthetic"] * 4,
+                "human_label": [False, False, True, True],
+                "probability_true": [0.1, 0.4, 0.35, 0.8],
+            }
+        )
+    )
+    row = ranking_readouts(data).table.iloc[0]
+    assert row.roc_auc == 0.75
+    assert row.average_precision == pytest.approx(5 / 6)
+    assert row.pr_auc_trapezoidal == pytest.approx(19 / 24)
+    # Monotone score transformations preserve rankings without selecting a cutoff.
+    data.rows.probability_true = data.rows.probability_true**2
+    transformed = ranking_readouts(data).table.iloc[0]
+    assert transformed.roc_auc == row.roc_auc
+    assert transformed.average_precision == row.average_precision
+
+
+def test_ranking_missing_labels_are_not_negative_references(probability_data):
+    probability_data.rows.human_label = probability_data.rows.human_label.astype("boolean")
+    probability_data.rows.loc[0, "human_label"] = None
+    row = ranking_readouts(probability_data).table.iloc[0]
+    assert row.missing_human_labels == 1
+    assert row.human_labelled == 4 and row.scored_labelled_pairs == 3
+    assert row.positive_pairs == 1 and row.negative_pairs == 2
+    assert row.unscored_positive_labels == 1
+
+
+@pytest.mark.parametrize("no_scores", [False, True])
+def test_ranking_unavailable_classes_do_not_produce_fake_curves(probability_data, no_scores):
+    from jev_eval.reporting import plot_probability_curves
+
+    probability_data.rows.human_label = False
+    if no_scores:
+        probability_data.rows.probability_true = float("nan")
+    result = ranking_readouts(probability_data)
+    row = result.table.iloc[0]
+    assert row.status == (
+        "no_scored_labelled_pairs" if no_scores else "requires_both_reference_classes"
+    )
+    assert math.isnan(row.roc_auc) and math.isnan(row.average_precision)
+    assert math.isnan(row.pr_auc_trapezoidal)
+    assert result.roc.empty and result.precision_recall.empty
+    assert plot_probability_curves(result) is None

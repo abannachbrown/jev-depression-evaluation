@@ -94,6 +94,8 @@ credentials.yml
 !/notebooks/03_run_models.ipynb
 !/notebooks/04_evaluation.ipynb
 !/notebooks/05_study_summary.ipynb
+/notebooks/*.html
+/notebooks/*.pdf
 
 # Handcrafted synthetic evaluation fixtures (never generated model results)
 !/data/examples/reference_labels.jsonl

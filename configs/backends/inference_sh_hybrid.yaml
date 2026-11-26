@@ -1,0 +1,10 @@
+schema_version: 1
+type: hosted
+protocol: inference_sh
+base_url: https://api.inference.sh
+run_path: /apps/run
+api_key_env: INFERENCE_API_KEY
+wait: true
+timeout_seconds: 120
+max_attempts: 1
+max_questions: 7

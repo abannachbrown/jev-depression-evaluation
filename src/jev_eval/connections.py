@@ -6,6 +6,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryFile
+from typing import Literal
 from uuid import uuid4
 
 import httpx
@@ -22,6 +23,7 @@ from jev_eval.backends.inference_sh import (
 from jev_eval.config import (
     ConnectionSettings,
     ConnectionTaskSettings,
+    HybridConnectionSettings,
     InferenceShSettings,
     ModelSettings,
     PrerequisiteError,
@@ -32,7 +34,12 @@ from jev_eval.config import (
 from jev_eval.data import fingerprint, load_json, validate_states
 from jev_eval.environment import reproducibility_summary, sha256_file
 from jev_eval.runner import safe_output_path
-from jev_eval.tasks import NormalizedResponse, TaskDefinition, validate_task_template
+from jev_eval.tasks import (
+    HYBRID_QUESTIONS,
+    NormalizedResponse,
+    TaskDefinition,
+    validate_task_template,
+)
 
 
 @dataclass(repr=False)
@@ -77,9 +84,133 @@ class ConnectionPersistenceError(RuntimeError):
         )
 
 
-def load_connection(root, config_path="configs/connections/inference_sh.yaml") -> Connection:
+class ComparisonConnectionSettings(Settings):
+    schema_version: Literal[1]
+    binary_connection: str
+    hybrid_connection: str
+    models: dict[str, str]
+
+
+def load_comparison_connections(root, config_path="configs/connections/comparison.yaml"):
+    """Four explicitly mock-only examples, reusing the existing one-POST clients.
+
+    Never modify the original live connection or allow a mock demonstration
+    loop to become a paid loop when configuration is edited.
+    """
     root = Path(root).resolve()
-    settings = parse_settings(ConnectionSettings, read_yaml(root / config_path), config_path)
+    settings = parse_settings(
+        ComparisonConnectionSettings, read_yaml(root / config_path), config_path
+    )
+    if set(settings.models) != {"jev-9b", "jev-27b"}:
+        raise PrerequisiteError("Connection examples require both JEV model YAMLs.")
+    connections = {}
+    for approach, loader in (("binary", load_connection), ("hybrid", load_hybrid_connection)):
+        base = loader(root, getattr(settings, approach + "_connection"))
+        if (
+            base.settings.execution.mode != "mock"
+            or base.settings.execution.allow_paid_calls
+            or base.settings.output.allow_writes
+        ):
+            raise PrerequisiteError(
+                "Four-arm examples must use mock mode with paid/write permissions off. "
+                "Use a separate single-request live test for deliberate connectivity checks."
+            )
+        for name, model_path in settings.models.items():
+            model = parse_settings(ModelSettings, read_yaml(root / model_path), model_path)
+            if model.name != name or model.hosted.app_id not in SUPPORTED_APPS:
+                raise PrerequisiteError(
+                    "Each connection example must select its named JEV deployment."
+                )
+            configured = base.settings.model_copy(deep=True)
+            configured.model_config_file = model_path
+            connections[(approach, name)] = replace(
+                base,
+                settings=configured,
+                model=model,
+                backend=base.backend.model_copy(deep=True),
+                task=base.task.model_copy(deep=True),
+                input_origin=f"synthetic_comparison_{approach}",
+            )
+    if len({fingerprint(c.state.model_dump()) for c in connections.values()}) != 1:
+        raise PrerequisiteError("All connection examples must use the same synthetic state.")
+    return connections
+
+
+def saved_connection_inventory(root):
+    """List prior metadata-only connection artifacts without resending or printing secrets.
+
+    This is a catalogue, not result recovery or a claim that all legacy artifacts
+    have the current metadata schema. Raw bodies and private citation inputs are
+    not displayed. Nonstandard historical recovery folders remain on disk.
+    """
+    root = Path(root).resolve()
+    rows = []
+    for path in sorted((root / "results/connections").rglob("metadata.json")):
+        try:
+            metadata = load_json(path)
+        except (OSError, ValueError, PrerequisiteError):
+            raise PrerequisiteError(
+                "A saved connection metadata file needs review; no request sent."
+            ) from None
+        if not isinstance(metadata, dict):
+            raise PrerequisiteError("A saved connection metadata file is not an object.")
+        # Use a fixed allowlist: credentials/configuration dictionaries never enter the table.
+        rows.append(
+            {
+                "artifact_directory": str(path.parent.relative_to(root)),
+                **{
+                    key: metadata.get(key)
+                    for key in (
+                        "mode",
+                        "status",
+                        "requested_app",
+                        "returned_model",
+                        "http_status",
+                        "started_at",
+                        "ended_at",
+                    )
+                },
+                "question_count": len(metadata["question_ids"])
+                if isinstance(metadata.get("question_ids"), list)
+                else None,
+                "normalized_file_available": (path.parent / "normalized.json").is_file(),
+                "raw_body_available": (path.parent / "response.body").is_file(),
+            }
+        )
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "artifact_directory",
+            "mode",
+            "status",
+            "requested_app",
+            "returned_model",
+            "http_status",
+            "started_at",
+            "ended_at",
+            "question_count",
+            "normalized_file_available",
+            "raw_body_available",
+        ],
+    )
+
+
+def load_connection(root, config_path="configs/connections/inference_sh.yaml") -> Connection:
+    return _load_connection(root, config_path, hybrid=False)
+
+
+def load_hybrid_connection(root, config_path="configs/connections/hybrid_v1.yaml") -> Connection:
+    """Separate one-synthetic-state, seven-NOUL opt-in; legacy connection stays one question."""
+    return _load_connection(root, config_path, hybrid=True)
+
+
+def _load_connection(root, config_path, *, hybrid):
+    root = Path(root).resolve()
+    settings = parse_settings(
+        HybridConnectionSettings if hybrid else ConnectionSettings,
+        read_yaml(root / config_path),
+        config_path,
+    )
     if os.getenv("JEV_NOTEBOOK_TEST_MODE") == "1" and (
         settings.execution.mode != "mock"
         or settings.execution.allow_paid_calls
@@ -101,8 +232,34 @@ def load_connection(root, config_path="configs/connections/inference_sh.yaml") -
     task = validate_task_template(root / selected.template_file)
     if selected.question_id not in task.questions:
         raise PrerequisiteError("Configured question_id is absent from the selected task template.")
-    task = TaskDefinition(questions={selected.question_id: task.questions[selected.question_id]})
-    connection = Connection(root, settings, backend, model, state, task)
+    if hybrid:
+        reviewed = validate_task_template(root / "prompts/reviewed/v1/binary_noul.json")
+        if (
+            backend.max_questions != 7
+            or set(task.questions) != set(HYBRID_QUESTIONS)
+            or any(q.type != "noul" for q in task.questions.values())
+            or selected.question_id != "overall_eligibility"
+            or task.questions["overall_eligibility"] != reviewed.questions["retain_for_fulltext"]
+            or settings.screening.binary_threshold is not None
+        ):
+            raise PrerequisiteError(
+                "Hybrid connection requires seven reviewed NOULs and an unset threshold."
+            )
+    else:
+        if backend.max_questions != 1:
+            raise PrerequisiteError("The original connection test requires a one-question backend.")
+        task = TaskDefinition(
+            questions={selected.question_id: task.questions[selected.question_id]}
+        )
+    connection = Connection(
+        root,
+        settings,
+        backend,
+        model,
+        state,
+        task,
+        input_origin="synthetic_hybrid_v1" if hybrid else "configured_files",
+    )
     safe_output_path(connection, settings.output.root)
     return connection
 
@@ -110,7 +267,11 @@ def load_connection(root, config_path="configs/connections/inference_sh.yaml") -
 def preview_connection(connection):
     return {
         "app": connection.model.hosted.app_id,
-        "input": build_decision_input(connection.state, connection.task),
+        "input": build_decision_input(
+            connection.state,
+            connection.task,
+            max_questions=connection.settings.execution.max_questions,
+        ),
         "wait": connection.backend.wait,
     }
 
@@ -121,6 +282,8 @@ def with_synthetic_example(connection, *, state: dict, question: dict) -> Connec
     The two-field study is intentionally separate from evaluation CitationState:
     no generated study identifier or reference decisions enter this request.
     """
+    if connection.settings.execution.max_questions != 1:
+        raise PrerequisiteError("Use the reviewed seven-question hybrid connection unchanged.")
     try:
         study = _SyntheticStudy.model_validate(state)
         if not study.title.strip() or not study.abstract.strip():
@@ -167,7 +330,10 @@ def connection_readiness(connection):
         [
             {"check": "Mode", "value": connection.settings.execution.mode},
             {"check": "Requested app", "value": connection.model.hosted.app_id},
-            {"check": "States / questions / POST attempts", "value": "1 / 1 / 1"},
+            {
+                "check": "States / questions / POST attempts",
+                "value": f"1 / {len(connection.task.questions)} / 1",
+            },
             {"check": "Credential required", "value": not mock},
             {
                 "check": "INFERENCE_API_KEY set (value hidden)",
@@ -242,6 +408,7 @@ def run_connection(connection, *, allow_paid_calls=False, allow_writes=False) ->
             for path in sorted(Path(__file__).parent.rglob("*.py"))
         },
         "binary_threshold": settings.screening.binary_threshold,
+        "question_ids": list(connection.task.questions),
     }
     kwargs = {}
     if settings.execution.mode == "mock":
@@ -257,6 +424,11 @@ def run_connection(connection, *, allow_paid_calls=False, allow_writes=False) ->
         ):
             answer = fixture["data"]["output"]["nouls"]["retain_for_fulltext"]
             fixture["data"]["output"]["nouls"] = {identifier: answer}
+        elif settings.execution.max_questions == 7:
+            # Explicitly fabricated connectivity fixture, never an evaluation result.
+            fixture["data"]["output"]["nouls"] = {
+                identifier: {"noul": 0.8} for identifier in connection.task.questions
+            }
         kwargs = {
             "api_key": SecretStr("mock"),
             "transport": httpx.MockTransport(lambda _request: httpx.Response(200, json=fixture)),

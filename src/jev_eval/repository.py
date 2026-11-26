@@ -45,6 +45,7 @@ def check_blob(path: str, blob: bytes, *, scan_secrets=True) -> list[str]:
     name = file.name
     protected = (
         file.parts[0] in PROTECTED_ROOTS
+        or (file.parts[0] == "notebooks" and file.suffix.lower() in {".html", ".pdf"})
         or (file.parts[0] == "data" and path not in DATA_FILES)
         or any(
             part
@@ -130,6 +131,10 @@ def check_blob(path: str, blob: bytes, *, scan_secrets=True) -> list[str]:
                     if (path, text.splitlines()[finding.line_number - 1].strip()) in {
                         ("configs/backends/hosted.yaml", "api_key_env: JEV_API_KEY"),
                         ("configs/backends/inference_sh.yaml", "api_key_env: INFERENCE_API_KEY"),
+                        (
+                            "configs/backends/inference_sh_hybrid.yaml",
+                            "api_key_env: INFERENCE_API_KEY",
+                        ),
                         (
                             "configs/backends/inference_sh_full.yaml",
                             "api_key_env: INFERENCE_API_KEY",

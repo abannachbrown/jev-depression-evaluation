@@ -1,0 +1,36 @@
+schema_version: 1
+evaluation_config: configs/evaluations/full_hybrid_v1_jev_9b.yaml
+scoring_config: configs/scoring/hybrid.yaml
+execution:
+  mode: hosted
+  allow_paid_calls: true
+  max_records: null
+  max_logical_requests: 10000
+  max_total_attempts: 12000
+privacy:
+  display_record_text: false
+  display_raw_responses: false
+output:
+  allow_writes: true
+  root: results/full/screening-v1/hybrid
+  run_id: full-hybrid-v1-jev-9b
+evaluation:
+  reference_labels: data/private/prepared/depression/c46913c123f8-262309b16d52/reference_labels.csv
+  demo_predictions: data/examples/synthetic_predictions.jsonl
+inference_sh_full:
+  enabled: true
+  dry_run: false
+  experiment_id: screening-v1-hybrid
+  cohort_manifest: results/full/screening-v1/hybrid/cohort.json
+  missing_text_policy: record_not_inferred
+  max_concurrency: 1
+  min_request_interval_seconds: 3.1
+  max_consecutive_failures: 3
+  retry:
+    max_attempts: 3
+    initial_backoff_seconds: 2.0
+    max_backoff_seconds: 60.0
+  decision_threshold: null
+  label_mapping:
+    '0': false
+    '1': true

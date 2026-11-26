@@ -1,11 +1,30 @@
 # Inference.sh single-request connection
 
 The backend implements the shared one-attempt `predict` / `close` interface for
-NOUL, choice, and score questions. Every call sends one state and one question.
-Notebook 02 remains a separate one-state synthetic connection test. Notebook 03
-also supports an explicitly enabled ten-state screening pilot described below.
+NOUL, choice and score questions. The original connection sends one state and
+one question. A separate reviewed hybrid profile explicitly allows one state
+with seven NOULs. Notebook 03 supports paired pilot/full v1 workflows; see the
+[current notebook guide](../notebooks/README.md) for execution flags and profiles.
 
 ## Configuration
+
+For the current hybrid workflow use `configs/screening/v1.yaml`, the separate
+`configs/connections/hybrid_v1.yaml` mock-first connection and
+`configs/backends/inference_sh_hybrid.yaml` with `max_questions: 7`. The default
+backend limit remains one. The seven IDs are fixed to the reviewed screening
+domains plus `overall_eligibility`; all must be present in a successful response.
+The builder collects every NOUL in the array rather than replacing earlier
+questions. Original single-question connection limits have not been relaxed.
+
+V1 pilot and full paths are separate for binary/hybrid and for both models.
+New permissions and live flags start off, full scope starts in dry-run mode,
+and partial responses retain their raw bodies with an error instead of counting
+as success. R1 is disabled pending protocol review. R2/minimum and R3/mean are
+offline score transformations, not additional model requests or calibrated joint
+probabilities. Formal tuning needs the original reconciled tuning membership.
+
+The sections below also document the historical binary implementation and
+archived experiment locations; their old defaults/paths are not the v1 defaults.
 
 Start in `notebooks/02_model_connection.ipynb`. No new dependencies are needed.
 Connection settings are in `configs/connections/inference_sh.yaml`:

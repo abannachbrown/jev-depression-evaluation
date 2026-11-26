@@ -1,8 +1,12 @@
 schema_version: 1
+# comparison_config drives notebooks 03–05's four-arm report. The older
+# analysis_config/illustrative_cutoffs remain for the single-approach API only.
 analysis_config: configs/evaluations/analysis_full.yaml
+comparison_config: configs/evaluations/comparison.yaml
 
-# Exploratory choices for colleague review, not locked validation cutoffs.
+# Target is shared with comparison.yaml; no final validation cutoff is adopted.
 target_recall: 0.95
+# Legacy illustrative cutoffs are not applied to the four-arm comparison.
 illustrative_cutoffs:
   jev-9b: 0.33
   jev-27b: 0.45

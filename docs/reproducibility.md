@@ -262,3 +262,62 @@ validation performance and verification of immutable hosted weights are not
 claimed by this interim summary. Review should establish the reference-standard
 procedures, discrepancy handling, missingness policy and locked validation
 protocol before unseen-study outcomes are examined.
+
+`ranking_readouts` evaluates continuous saved retention scores, without choosing
+a cutoff or imputing missing predictions. ROC AUC uses `roc_auc_score`; PR AUC
+uses trapezoidal `auc(recall, precision)`; AP uses the non-interpolated
+`average_precision_score`. Both human classes must occur among scored labelled
+pairs. Missing scores/labels and class denominators are reported per model, and
+models with different scored subsets need a paired-cohort comparison before
+interpreting differences. Notebook 05 includes the ranking table, ROC/PR curves
+and definitions in its interim/export workflow. The original inference and
+official threshold settings remain unchanged; no confidence intervals or unseen
+validation are implied by these descriptive ranking measures.
+
+## Reviewed binary/hybrid v1 integration
+
+`configs/screening/v1.yaml` selects the default approach and lists explicit
+per-model pilot/full/analysis profiles. V1 has independent experiment IDs,
+cohort/sample manifests and output directories. Its overall binary and hybrid
+questions match exactly; archived legacy prompts/results remain unchanged and
+are labelled as different wording. New paid/write flags start false. Connection
+testing defaults to fabricated mock responses; no real calls are made by tests.
+
+Hybrid request construction explicitly opts into exactly seven reviewed NOUL
+IDs, collecting them in one array for one study/POST. The original connection
+keeps its one-question limit. Successful normalization and saved-output
+validation require every expected probability to be finite, numeric and in 0–1.
+Partial/error responses retain exact raw bytes and do not count as successes.
+The existing bounded runner retains retry headers, budgets, durable checkpoints,
+mandatory live saving and unknown-outcome resume blocks. No generation settings
+are sent. Logical POST counts and question-evaluation counts are shown separately.
+
+Notebook 01 reuses the full dataset validator's textless-record policy and
+previews the same deterministic ten-state sample without writing. Nothing
+changes the original workbook, prepared states, reference labels or review flags.
+Actual pilot execution freezes the input/task sample before requests. Separate
+v1 approaches use separate task identities while retaining identical input IDs.
+
+The primary question is explicit rather than inferred from dictionary order.
+Raw seven-question probabilities are preserved separately from direct, minimum
+and mean analysis views. Only the four primary domains enter R2/R3; control-group
+and outcome scores remain secondary. Derived scores are not claimed as joint
+probabilities. R1 is explicitly disabled pending protocol review. Formal R2/R3
+threshold candidates need the original private 5,749/1,251 split and resolved
+cohort membership; no replacement random split or unreported record removal is
+allowed. Pooled candidate tables remain exploratory. No validation lock or final
+winning rule is inferred while R1 and protocol questions remain unresolved.
+
+Notebooks 04–05 prefer saved selected-v1 results, show an explicit legacy
+fallback if available, or display planned coverage without invented predictions.
+One missing model arm remains not_run with no historical fingerprint. Live
+resume fingerprints remain strict; read-only scientific-input-checked archive
+views preserve original fingerprints across later analysis-code changes.
+Legacy illustrative cutoffs are not applied to v1. Long-format question-score
+exports require independent write permission and remain under ignored results,
+with source/config/code/environment/output identities. Aggregate report exports
+include separate v1 availability, candidate, ranking and tuning-status tables.
+
+The planned 2,000-study validation remains unused. Hosted model-weight revisions
+remain null unless reported, and unverified unless independently established.
+No local GPU packages, model downloads or training are introduced.

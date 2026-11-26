@@ -9,6 +9,33 @@ from pydantic import BeforeValidator, Field, StrictBool, StrictStr, ValidationEr
 from jev_eval.config import PrerequisiteError, Settings
 from jev_eval.data import fingerprint, load_json
 
+PRIMARY_DOMAINS = ("primary_research", "animal_study", "in_vivo_experiment", "depression_model")
+HYBRID_QUESTIONS = (*PRIMARY_DOMAINS, "control_group", "eligible_outcomes", "overall_eligibility")
+
+
+def primary_question(project, task):
+    identifier = project.evaluation.task.primary_question or project.scoring.question
+    if identifier not in task.questions or identifier != project.scoring.question:
+        raise PrerequisiteError(
+            "Configure the primary question explicitly and match the scoring question."
+        )
+    return identifier
+
+
+def valid_batch_task(project, task):
+    """Legacy binary remains one NOUL; hybrid needs explicit seven-question opt-in."""
+    if project.evaluation.task.approach == "binary":
+        return len(task.questions) == 1 and all(q.type == "noul" for q in task.questions.values())
+    if (
+        set(task.questions) != set(HYBRID_QUESTIONS)
+        or any(q.type != "noul" for q in task.questions.values())
+        or getattr(project.backend, "max_questions", 1) != 7
+        or primary_question(project, task) != "overall_eligibility"
+    ):
+        return False
+    reviewed = validate_task_template(project.root / "prompts/reviewed/v1/binary_noul.json")
+    return task.questions["overall_eligibility"] == reviewed.questions["retain_for_fulltext"]
+
 
 def _number(value):
     if isinstance(value, bool) or not isinstance(value, (int, float)):

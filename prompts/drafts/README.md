@@ -17,10 +17,9 @@ The drafts retain the supplied `jev-latest` model value. This mutable alias is
 not the configured identity of either benchmark model. A future adapter must
 select the model from the model configuration and insert each dataset state.
 
-The evaluation YAML files deliberately leave `task.prompt_file` unset. Before
-wiring these drafts into a run, finalize their structure, confirm the provider's
-NOUL contract, and define response parsing and scoring. No missing hybrid
-criteria or aggregation rules have been inferred.
+Existing binary evaluation profiles select `binary_noul.json`. The original
+truncated hybrid draft is not selected; no missing hybrid criteria or aggregation
+rules have been inferred from that incomplete file.
 
 ## Additional corrected hybrid draft
 
@@ -29,3 +28,12 @@ seven NOUL questions, including `overall_eligibility`. It is preserved unchanged
 The original truncated draft is retained for provenance. The corrected draft is
 not selected by the binary notebook workflow; a reviewed choice of primary
 question, reference labels, and any hybrid aggregation rules is still required.
+
+## Owner-reviewed wording v1
+
+The agreed 24 November 2026 screening clarifications are captured separately in
+[`../reviewed/v1/`](../reviewed/v1/README.md). Those templates have identical
+binary/hybrid overall questions and document separate manual review flags.
+The new screening-v1 profiles select them explicitly, with hybrid as the central
+default. No new model calls are implied by that configuration. Legacy workflows
+and saved runs retain the supplied binary draft. The drafts here remain unchanged.

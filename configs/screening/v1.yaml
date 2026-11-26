@@ -1,0 +1,28 @@
+schema_version: 1
+default_approach: hybrid
+prompt_version: screening-v1
+profiles:
+  binary:
+    pilot:
+      jev-9b: configs/workflows/pilot_binary_v1_jev_9b.yaml
+      jev-27b: configs/workflows/pilot_binary_v1_jev_27b.yaml
+    full:
+      jev-9b: configs/workflows/full_binary_v1_jev_9b.yaml
+      jev-27b: configs/workflows/full_binary_v1_jev_27b.yaml
+    analysis_config: configs/evaluations/analysis_binary_v1.yaml
+  hybrid:
+    pilot:
+      jev-9b: configs/workflows/pilot_hybrid_v1_jev_9b.yaml
+      jev-27b: configs/workflows/pilot_hybrid_v1_jev_27b.yaml
+    full:
+      jev-9b: configs/workflows/full_hybrid_v1_jev_9b.yaml
+      jev-27b: configs/workflows/full_hybrid_v1_jev_27b.yaml
+    analysis_config: configs/evaluations/analysis_hybrid_v1.yaml
+legacy_analysis_config: configs/evaluations/analysis_full.yaml
+hybrid_connection_config: configs/connections/hybrid_v1.yaml
+development_split_file: null
+planned_validation_records: 2000
+target_recall: 0.95
+r1_policy: disabled_pending_protocol_review
+output_root: results/evaluation/screening-v1
+allow_writes: false

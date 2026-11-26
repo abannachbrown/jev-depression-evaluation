@@ -9,6 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 import yaml
+from conftest import configure_v1_inputs
 
 import jev_eval.runner as runner
 from jev_eval.config import PrerequisiteError, load_project_config
@@ -74,11 +75,18 @@ def full_projects(project):
         settings["inference_sh_full"]["dry_run"] = False
         settings["evaluation"]["reference_labels"] = str(reference.relative_to(project.root))
         path.write_text(yaml.safe_dump(settings))
+    configure_v1_inputs(project.root, source, reference, live=True)
     shutil.copytree(
         ROOT / "src/jev_eval",
         project.root / "src/jev_eval",
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.fetch", "*.tmp"),
     )
+    # Retain explicit coverage of the older single-approach summary API.
+    # Four-arm default reporting is covered in test_comparison.py.
+    summary_config = project.root / "configs/evaluations/interim_summary.yaml"
+    summary_settings = yaml.safe_load(summary_config.read_text())
+    summary_settings["comparison_config"] = None
+    summary_config.write_text(yaml.safe_dump(summary_settings))
     return tuple(
         load_project_config(project.root, f"configs/workflows/full_{model}.yaml")
         for model in ("jev_9b", "jev_27b")
@@ -594,17 +602,14 @@ def test_full_evaluation_notebook_uses_saved_real_format_data_without_any_api(
     )
     notebook.cells.append(
         nbformat.v4.new_code_cell(
-            "assert DATA_MODE == 'full'\n"
-            "assert len(states) == 5 and len(reference_labels) == 4\n"
-            "assert summary.labelled.tolist() == [4, 4]\n"
-            f"assert (evaluation is None) == {threshold is None!r}\n"
-            f"assert (figure is None) == {threshold is None!r}\n"
-            "assert not ALLOW_WRITES\n"
-            "assert len(screening_metric_summary) == 6\n"
+            "assert len(comparison.tables['arms']) == 4\n"
+            "assert len(comparison.datasets['binary'].states) == 5\n"
+            "assert len(comparison.datasets['binary'].reference_labels) == 4\n"
+            "assert comparison.tables['coverage'].successful.tolist() == [4, 4, 0, 0]\n"
+            "assert len(performance) == 8 and not EXPORT_COMPARISON\n"
             "assert {'specificity_scored', 'ppv_scored', 'f2_scored', 'wss95_scored', "
-            "'wss95_cohort_conservative'} <= set(screening_metric_summary.columns)\n"
-            "assert screening_metric_summary.wss95_cohort_conservative.isna().all()\n"
-            "assert rounded_readouts.ppv_scored.equals(rounded_readouts.precision_scored)\n"
+            "'wss95_cohort_conservative'} <= set(performance.columns)\n"
+            "assert performance.wss95_cohort_conservative.isna().all()\n"
         )
     )
     NotebookClient(
@@ -643,6 +648,9 @@ def test_interim_summary_preserves_archives_and_marks_validation_as_future(
     assert report.tables["reference_summary"].human_retain.iloc[0] == 2
     assert "not available" in report.tables["audit_summary"].status.iloc[0]
     assert report.tables["screening_metrics"].wss95_cohort_conservative.isna().all()
+    assert report.tables["ranking_metrics"].scored_labelled_pairs.tolist() == [3, 3]
+    assert report.tables["ranking_metrics"].roc_auc.tolist() == [0.5, 0.5]
+    assert report.tables["ranking_metrics"].unscored_positive_labels.tolist() == [1, 1]
     paired = report.tables["paired_positive_errors"].iloc[0]
     assert paired.human_retain_total == 2 and paired.both_scored == 1
     assert paired.unavailable_in_either_model == 1 and paired.neither_missed == 1
@@ -704,6 +712,8 @@ def test_interim_summary_verifies_preparation_audit_and_exports_aggregates(full_
     for name, digest in manifest["output_sha256"].items():
         assert hashlib.sha256((folder / name).read_bytes()).hexdigest() == digest
     assert (folder / "summary.html").is_file()
+    assert (folder / "ranking_metrics.csv").is_file()
+    assert "non-interpolated" in manifest["ranking_definitions"]["average_precision"]
     assert manifest["validation_results_present"] is False
     for path in folder.iterdir():
         text = path.read_text()
@@ -746,6 +756,10 @@ def test_interim_summary_notebook_from_fresh_kernel_without_api_or_writes(
 
     completed_analysis_inputs(full_projects)
     root = full_projects[0].root
+    settings_path = root / "configs/evaluations/interim_summary.yaml"
+    settings = yaml.safe_load(settings_path.read_text())
+    settings["comparison_config"] = "configs/evaluations/comparison.yaml"
+    settings_path.write_text(yaml.safe_dump(settings))
     monkeypatch.delenv("INFERENCE_API_KEY", raising=False)
     monkeypatch.setenv("JEV_NOTEBOOK_TEST_MODE", "1")
     monkeypatch.setenv("MPLBACKEND", "Agg")
@@ -774,7 +788,10 @@ def test_interim_summary_notebook_from_fresh_kernel_without_api_or_writes(
         nbformat.v4.new_code_cell(
             "assert summary.settings.planned_validation_records == 2000\n"
             "assert summary.provenance['validation_results_present'] is False\n"
-            "assert len(performance) == 6\nassert not EXPORT_INTERIM_REPORT\n"
+            "assert len(performance) == 8\nassert not EXPORT_INTERIM_REPORT\n"
+            "assert comparison.tables['ranking_metrics'].scored_labelled_pairs.tolist() == [3, 3, 0, 0]\n"
+            "assert comparison.tables['ranking_metrics'].roc_auc.iloc[:2].tolist() == [0.5, 0.5]\n"
+            "assert 'four-arm-roc-pr' in figures\n"
             "assert not summary.settings.allow_writes\n"
             "assert not (summary.data.plans[0].project.root / 'results/summary').exists()\n"
         )
@@ -796,99 +813,6 @@ def test_config_change_after_planning_is_rejected_before_http(full_projects):
         execute(plan, successful([]))
 
 
-@pytest.mark.parametrize("execution", ["dry", "live"])
-def test_appended_full_sections_from_fresh_mock_only_kernel(full_projects, monkeypatch, execution):
-    import nbformat
-    from nbclient import NotebookClient
-
-    root = full_projects[0].root
-    monkeypatch.setenv("JEV_NOTEBOOK_TEST_MODE", "1")
-    for name in ("IPYTHONDIR", "JUPYTER_RUNTIME_DIR", "MPLCONFIGDIR"):
-        monkeypatch.setenv(name, str(root / name.lower()))
-    path = ROOT / "notebooks/03_run_models.ipynb"
-    original = path.read_bytes()
-    notebook = nbformat.read(path, as_version=4)
-    assert notebook.cells[22].id == "full-overview"
-    # Earlier pilot flags remain enabled in the real notebook; never execute them here.
-    notebook.cells = notebook.cells[22:]
-    if execution == "dry":
-        for model in ("jev_9b", "jev_27b"):
-            config = root / f"configs/workflows/full_{model}.yaml"
-            settings = yaml.safe_load(config.read_text())
-            settings["execution"]["allow_paid_calls"] = False
-            settings["output"]["allow_writes"] = False
-            settings["inference_sh_full"]["dry_run"] = True
-            config.write_text(yaml.safe_dump(settings))
-    else:
-        for cell in notebook.cells:
-            if cell.cell_type == "code":
-                cell.source = cell.source.replace(
-                    "RUN_FULL_JEV_9B = False", "RUN_FULL_JEV_9B = True"
-                )
-                cell.source = cell.source.replace(
-                    "RUN_FULL_JEV_27B = False", "RUN_FULL_JEV_27B = True"
-                )
-                cell.source = cell.source.replace(
-                    "EXPORT_FULL_RESULTS = False", "EXPORT_FULL_RESULTS = True"
-                )
-    notebook.cells.insert(
-        0,
-        nbformat.v4.new_code_cell(
-            "from pathlib import Path\n"
-            "import json, httpx\n"
-            "import jev_eval.environment as environment_module\n"
-            "import jev_eval.runner as runner_module\n"
-            "from jev_eval.config import load_project_config\n"
-            "from jev_eval.backends.inference_sh import InferenceShBackend\n"
-            f"test_root = Path({str(root)!r})\n"
-            "def forbid_http(*args, **kwargs):\n"
-            "    raise AssertionError('Full notebooks cannot make real HTTP calls in tests')\n"
-            "httpx.HTTPTransport.handle_request = forbid_http\n"
-            "environment_module.initialize_notebook = lambda **kw: load_project_config(test_root, kw['workflow_path'])\n"
-            "full_test_calls = []\n"
-            "def handler(request):\n"
-            "    payload = json.loads(request.content)\n"
-            "    full_test_calls.append(payload)\n"
-            "    return httpx.Response(200, json={'data': {'id': 'synthetic-' + str(len(full_test_calls)),\n"
-            "        'status': 10, 'output': {'model': payload['app'], 'input_tokens': 10,\n"
-            "        'nouls': {'retain_for_fulltext': {'noul': 0.8}}}}})\n"
-            "runner_module.create_backend = lambda project, **kw: InferenceShBackend(\n"
-            "    project.backend, api_key='synthetic-full-only', transport=httpx.MockTransport(handler))\n"
-            "original_full_run = runner_module.run_experiment\n"
-            "def offline_full_run(*args, **kwargs):\n"
-            "    return original_full_run(*args, **kwargs, sleeper=lambda _delay: None)\n"
-            "runner_module.run_experiment = offline_full_run\n"
-        ),
-    )
-    notebook.cells.append(
-        nbformat.v4.new_code_cell(
-            f"assert len(full_test_calls) == {0 if execution == 'dry' else 8}\n"
-            "assert len(full_states) == 5\n"
-            "assert len(full_evaluation_ready) == 10\n"
-            "assert full_execution_plan.logical_requests.sum() == 8\n"
-            "assert full_plan_9b.dataset_sha256 == full_plan_27b.dataset_sha256\n"
-        )
-    )
-    if execution == "live":
-        notebook.cells.append(
-            nbformat.v4.new_code_cell(
-                "assert full_export_directory.is_dir()\n"
-                "assert full_output_validation.successful.tolist() == [4, 4]\n"
-                "assert full_output_validation.not_inferred_no_text.tolist() == [1, 1]\n"
-                "assert [r['input'] for r in full_test_calls[:4]] == [r['input'] for r in full_test_calls[4:]]\n"
-            )
-        )
-    else:
-        notebook.cells.append(
-            nbformat.v4.new_code_cell(
-                "assert not (test_root / 'results').exists()\n"
-                "assert full_evaluation_ready.probability_true.isna().all()\n"
-            )
-        )
-    NotebookClient(
-        notebook,
-        timeout=120,
-        kernel_name="python3",
-        resources={"metadata": {"path": str(ROOT / "notebooks")}},
-    ).execute()
-    assert path.read_bytes() == original
+# Notebook 03's former appended single-approach UI was replaced by the
+# four-arm workflow. Fresh-kernel and explicit-execution coverage now lives in
+# test_comparison.py; the full runner safeguards remain covered above.

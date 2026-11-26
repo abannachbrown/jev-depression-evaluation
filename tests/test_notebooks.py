@@ -15,7 +15,6 @@ ROOT = Path(__file__).resolve().parents[1]
         "00_setup",
         "01_prepare_data",
         "02_model_connection",
-        "04_evaluation",
     ],
 )
 def test_notebook_from_fresh_kernel(name, monkeypatch, tmp_path, project):
@@ -29,12 +28,10 @@ def test_notebook_from_fresh_kernel(name, monkeypatch, tmp_path, project):
     assert not check_blob(f"notebooks/{name}.ipynb", original)
     notebook = nbformat.read(path, as_version=4)
     nbformat.validate(notebook)
-    if name == "04_evaluation":
-        # Full saved-data evaluation is tested independently in test_full_runs.py.
-        # This generic walkthrough test intentionally exercises the teaching path.
+    if name == "01_prepare_data":
         for cell in notebook.cells:
             if cell.cell_type == "code":
-                cell.source = cell.source.replace('DATA_MODE = "full"', 'DATA_MODE = "demo"')
+                cell.source = cell.source.replace('DATA_MODE = "prepared"', 'DATA_MODE = "demo"')
     notebook.cells.insert(
         0,
         nbformat.v4.new_code_cell(
@@ -69,7 +66,7 @@ def test_notebook_from_fresh_kernel(name, monkeypatch, tmp_path, project):
                 "assert not ALLOW_WRITES\n"
             )
         )
-    # The dual-model notebook 03 is exercised in test_pilot.py with synthetic inputs.
+    # Four-arm notebooks 03–05 are exercised in test_comparison.py.
     if name == "02_model_connection":
         # Use temporary mock settings, never a live workspace profile.
         notebook.cells.insert(

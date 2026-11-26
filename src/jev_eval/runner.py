@@ -32,7 +32,7 @@ from jev_eval.data import (
     validate_states,
 )
 from jev_eval.environment import reproducibility_summary, sha256_file
-from jev_eval.tasks import load_task, validate_response
+from jev_eval.tasks import load_task, primary_question, valid_batch_task, validate_response
 
 
 def utc_now():
@@ -106,6 +106,9 @@ class RunPlan:
                     "records": len(self.states),
                     "not_inferred_no_text": skipped,
                     "models": len(self.project.models),
+                    "approach": self.project.evaluation.task.approach,
+                    "questions_per_request": len(self.task.questions),
+                    "question_evaluations": logical * len(self.task.questions),
                     "logical_requests": logical,
                     "maximum_attempts": min(
                         logical * retry, self.project.workflow.execution.max_total_attempts
@@ -287,6 +290,10 @@ def _prepare_run(plan, *, writing):
             "fingerprint": plan.fingerprint,
             "dataset_sha256": plan.dataset_sha256,
             "task_sha256": plan.task.fingerprint,
+            "approach": project.evaluation.task.approach,
+            "prompt_version": project.evaluation.task.prompt_version,
+            "primary_question": primary_question(project, plan.task),
+            "question_ids": list(plan.task.questions),
             "model_names": [model.name for model in project.models],
             "requested_model_ids": {
                 m.name: _requested_model_id(project, m) if mode == "hosted" else m.name
@@ -384,6 +391,8 @@ def run_experiment(
     if _is_inference_sh(project):
         if not writing:
             raise PrerequisiteError("Inference.sh pilots require ALLOW_WRITES = True.")
+        if not _is_full(project) and project.evaluation.task.prompt_version == "screening-v1":
+            prepare_pilot_sample(project, allow_writes=True)
         return _run_inference_sh_pilot(
             plan, backend=backend, transport=transport, sleeper=sleeper, progress=progress
         )
@@ -558,8 +567,7 @@ def _validate_full_plan(project, states, task):
         or limits.max_records is not None
         or len(project.models) != 1
         or project.models[0].hosted.app_id not in SUPPORTED_APPS
-        or len(task.questions) != 1
-        or next(iter(task.questions.values())).type != "noul"
+        or not valid_batch_task(project, task)
         or not project.evaluation.output.save_raw_responses
     ):
         raise PrerequisiteError(
@@ -597,8 +605,7 @@ def _validate_pilot_plan(project, states, task):
         or limits.max_total_attempts > 10
         or len(project.models) != 1
         or project.models[0].hosted.app_id not in SUPPORTED_APPS
-        or len(task.questions) != 1
-        or next(iter(task.questions.values())).type != "noul"
+        or not valid_batch_task(project, task)
         or not project.evaluation.output.save_raw_responses
     ):
         raise PrerequisiteError(
@@ -606,7 +613,9 @@ def _validate_pilot_plan(project, states, task):
             "max_records: 10 and request/attempt limits no greater than ten."
         )
     validate_states([state.model_dump() for state in states]).require_valid()
-    sample = prepare_pilot_sample(project)
+    sample = prepare_pilot_sample(
+        project, preview_only=project.evaluation.task.prompt_version == "screening-v1"
+    )
     if dataset_fingerprint(states) != sample.manifest["sample_sha256"]:
         raise PrerequisiteError("Selected states must match the ten frozen pilot states in order.")
     if task.fingerprint != sample.manifest["task_sha256"]:
@@ -817,7 +826,9 @@ def _run_inference_sh_pilot(plan, *, backend, transport, sleeper, progress=None)
                 started = utc_now()
                 request = {
                     "app": model.hosted.app_id,
-                    "input": build_decision_input(state, plan.task),
+                    "input": build_decision_input(
+                        state, plan.task, max_questions=project.backend.max_questions
+                    ),
                     "wait": project.backend.wait,
                 }
                 record = {

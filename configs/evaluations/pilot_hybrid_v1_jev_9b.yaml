@@ -1,0 +1,28 @@
+schema_version: 1
+name: pilot_hybrid_v1_jev_9b
+seed: 42
+dataset:
+  path: data/private/prepared/depression/c46913c123f8-262309b16d52/states.jsonl
+  root_env: null
+  format: jsonl
+  glob: null
+  expected_count: 7008
+  order: sorted
+  shuffle: false
+backend: configs/backends/inference_sh_hybrid.yaml
+models:
+- configs/models/jev-9b.yaml
+generation:
+  temperature: 0.0
+  max_output_tokens: 512
+task:
+  prompt_file: prompts/reviewed/v1/hybrid_noul.json
+  response_schema_file: null
+  metrics: []
+  approach: hybrid
+  primary_question: overall_eligibility
+  prompt_version: screening-v1
+output:
+  root: results/pilots/screening-v1/hybrid
+  resume: true
+  save_raw_responses: true

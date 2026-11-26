@@ -211,7 +211,7 @@ class PilotSample:
         )
 
 
-def prepare_pilot_sample(project, *, allow_writes=False) -> PilotSample:
+def prepare_pilot_sample(project, *, allow_writes=False, preview_only=False) -> PilotSample:
     """Freeze ten input-only states for both models; never contact a provider.
 
     Only absence of all citation text is deferred from inference. Other errors
@@ -296,6 +296,8 @@ def prepare_pilot_sample(project, *, allow_writes=False) -> PilotSample:
     }
     path = safe_output_path(project, settings.sample_manifest)
     if not path.exists():
+        if preview_only:
+            return PilotSample(sample, manifest, path)
         if not allow_writes:
             raise PrerequisiteError(
                 "No frozen pilot sample exists. Enable ALLOW_SAMPLE_WRITES to create it; "
@@ -426,6 +428,12 @@ def load_full_dataset(project) -> FullDataset:
             "Frozen full cohort differs from the source or eligibility criteria."
         )
     return FullDataset(states, manifest)
+
+
+def prepared_state_report(project):
+    """Preparation report preserving the full loader's textless-record policy."""
+    cohort = load_full_dataset(project)
+    return ValidationReport(cohort.states, cohort.manifest["validation_issues"], len(cohort.states))
 
 
 def freeze_full_dataset(project, cohort, *, allow_writes=False):

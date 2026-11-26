@@ -40,6 +40,8 @@ def test_output_metadata_attachments_and_forced_private_paths():
         "models/x/config.json",
         "data/examples/not-reviewed.json",
         "notebooks/extra.ipynb",
+        "notebooks/05_study_summary.html",
+        "notebooks/05_study_summary.pdf",
     ):
         assert check_blob(path, b"{}", scan_secrets=False), path
 
@@ -82,6 +84,12 @@ def test_only_exact_environment_reference_is_exempt():
         "configs/backends/inference_sh_full.yaml", b"api_key_env: INFERENCE_API_KEY\n"
     )
     assert check_blob("configs/backends/inference_sh_full.yaml", ("api_key_env: " + value).encode())
+    assert not check_blob(
+        "configs/backends/inference_sh_hybrid.yaml", b"api_key_env: INFERENCE_API_KEY\n"
+    )
+    assert check_blob(
+        "configs/backends/inference_sh_hybrid.yaml", ("api_key_env: " + value).encode()
+    )
 
 
 def test_source_checksum_exception_does_not_exempt_credentials():

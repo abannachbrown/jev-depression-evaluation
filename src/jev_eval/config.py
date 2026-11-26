@@ -35,6 +35,9 @@ class TaskSettings(Settings):
     prompt_file: str | None = None
     response_schema_file: str | None = None
     metrics: list[str] = Field(default_factory=list)
+    approach: Literal["binary", "hybrid"] = "binary"
+    primary_question: str | None = None
+    prompt_version: str | None = None
 
 
 class RunOutputSettings(Settings):
@@ -84,6 +87,7 @@ class InferenceShSettings(Settings):
     wait: Literal[True] = True
     timeout_seconds: float = Field(gt=0)
     max_attempts: Literal[1] = 1
+    max_questions: Literal[1, 7] = 1
 
 
 class LocalSettings(Settings):
@@ -222,6 +226,14 @@ class ConnectionSettings(Settings):
     execution: ConnectionExecutionSettings
     screening: ConnectionScreeningSettings
     output: ConnectionOutputSettings
+
+
+class HybridConnectionExecutionSettings(ConnectionExecutionSettings):
+    max_questions: Literal[7] = 7
+
+
+class HybridConnectionSettings(ConnectionSettings):
+    execution: HybridConnectionExecutionSettings
 
 
 class ConnectionTaskSettings(Settings):

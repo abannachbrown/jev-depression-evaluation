@@ -9,6 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 import yaml
+from conftest import configure_v1_inputs
 
 import jev_eval.runner as runner
 from jev_eval.config import PrerequisiteError, load_project_config
@@ -62,6 +63,7 @@ def pilot_project(project):
         full_workflow = yaml.safe_load(workflow_path.read_text())
         full_workflow["evaluation"]["reference_labels"] = str(reference.relative_to(project.root))
         workflow_path.write_text(yaml.safe_dump(full_workflow))
+    configure_v1_inputs(project.root, source, reference, live=True)
     shutil.copytree(
         ROOT / "src/jev_eval",
         project.root / "src/jev_eval",
@@ -509,103 +511,6 @@ def test_paired_plans_reject_different_order_criteria_or_destinations(pilot_proj
         paired_pilot_plan_table(p9, p27)
 
 
-@pytest.mark.parametrize("execution", ["neither", "9b_only", "27b_only", "both"])
-def test_pilot_notebook_runs_in_a_fresh_mock_only_kernel(pilot_project, monkeypatch, execution):
-    import nbformat
-    from nbclient import NotebookClient
-
-    monkeypatch.setenv("JEV_NOTEBOOK_TEST_MODE", "1")
-    for name in ("IPYTHONDIR", "JUPYTER_RUNTIME_DIR", "MPLCONFIGDIR"):
-        monkeypatch.setenv(name, str(pilot_project.root / name.lower()))
-    path = ROOT / "notebooks/03_run_models.ipynb"
-    original = path.read_bytes()
-    notebook = nbformat.read(path, as_version=4)
-    # Test the preserved pilot workflow independently of user-enabled full-run
-    # cells. The appended full workflow has its own isolated kernel tests.
-    notebook.cells = notebook.cells[:22]
-    run_9b = execution in {"9b_only", "both"}
-    run_27b = execution in {"27b_only", "both"}
-    by_id = {cell.id: cell for cell in notebook.cells}
-    # Test selection stays independent of the user's current execution flags.
-    by_id["run-jev-9b"].source = by_id["run-jev-9b"].source.replace(
-        "RUN_JEV_9B = True", "RUN_JEV_9B = False"
-    )
-    by_id["run-jev-27b"].source = by_id["run-jev-27b"].source.replace(
-        "RUN_JEV_27B = True", "RUN_JEV_27B = False"
-    )
-    if run_9b:
-        by_id["run-jev-9b"].source = by_id["run-jev-9b"].source.replace(
-            "RUN_JEV_9B = False", "RUN_JEV_9B = True"
-        )
-    if run_27b:
-        by_id["run-jev-27b"].source = by_id["run-jev-27b"].source.replace(
-            "RUN_JEV_27B = False", "RUN_JEV_27B = True"
-        )
-    notebook.cells.insert(
-        0,
-        nbformat.v4.new_code_cell(
-            "from pathlib import Path\n"
-            "import json\n"
-            "import httpx\n"
-            "import jev_eval.environment as environment_module\n"
-            "import jev_eval.runner as runner_module\n"
-            "from jev_eval.config import load_project_config\n"
-            "from jev_eval.backends.inference_sh import InferenceShBackend\n"
-            f"test_root = Path({str(pilot_project.root)!r})\n"
-            "def forbid_http(*args, **kwargs):\n"
-            "    raise AssertionError('No real HTTP in notebook tests')\n"
-            "httpx.HTTPTransport.handle_request = forbid_http\n"
-            "environment_module.initialize_notebook = lambda **kw: load_project_config(\n"
-            "    test_root, kw['workflow_path'])\n"
-            "notebook_calls = []\n"
-            "def handler(request):\n"
-            "    payload = json.loads(request.content)\n"
-            "    notebook_calls.append(payload)\n"
-            "    return httpx.Response(200, json={'data': {\n"
-            "        'id': 'synthetic-' + str(len(notebook_calls)), 'status': 10,\n"
-            "        'output': {'model': payload['app'], 'input_tokens': 10,\n"
-            "                   'nouls': {'retain_for_fulltext': {'noul': 0.8}}}}})\n"
-            "runner_module.create_backend = lambda project, **kw: InferenceShBackend(\n"
-            "    project.backend, api_key='synthetic-only', transport=httpx.MockTransport(handler))\n"
-            "original_run = runner_module.run_experiment\n"
-            "def offline_run(*args, **kwargs):\n"
-            "    return original_run(*args, **kwargs, sleeper=lambda _delay: None)\n"
-            "runner_module.run_experiment = offline_run\n"
-        ),
-    )
-    notebook.cells.append(
-        nbformat.v4.new_code_cell(
-            f"assert len(notebook_calls) == {10 * (run_9b + run_27b)}\n"
-            f"assert (result_9b is not None) == {run_9b!r}\n"
-            f"assert (result_27b is not None) == {run_27b!r}\n"
-            "assert plan_9b.dataset_sha256 == plan_27b.dataset_sha256 == pilot.manifest['sample_sha256']\n"
-            "assert plan_9b.task.fingerprint == plan_27b.task.fingerprint\n"
-            "assert len(paired_probabilities) == 10\n"
-            "assert list(paired_probabilities.study_id) == pilot.manifest['ordered_study_ids']\n"
-            f"assert methods.text.startswith('Completed pilot methods.') == {execution == 'both'!r}\n"
-            "for retained in (result_9b, result_27b):\n"
-            "    if retained is not None:\n"
-            "        assert retained.manifest['status'] == 'completed'\n"
-            "        assert retained.directory.is_dir()\n"
-            "        assert retained.manifest['total_attempts'] == 10\n"
-        )
-    )
-    if execution == "both":
-        notebook.cells.append(
-            nbformat.v4.new_code_cell(
-                "assert [call['app'] for call in notebook_calls] == ['autotrust/jev-9b'] * 10 + ['autotrust/jev-27b-v1-1'] * 10\n"
-                "assert [call['input'] for call in notebook_calls[:10]] == [call['input'] for call in notebook_calls[10:]]\n"
-                "assert result_9b.directory != result_27b.directory\n"
-            )
-        )
-        # Running either explicit model cell again resumes without another POST.
-        notebook.cells.append(nbformat.v4.new_code_cell(by_id["run-jev-27b"].source))
-        notebook.cells.append(nbformat.v4.new_code_cell(by_id["run-jev-9b"].source))
-        notebook.cells.append(nbformat.v4.new_code_cell("assert len(notebook_calls) == 20"))
-    NotebookClient(
-        notebook,
-        timeout=120,
-        kernel_name="python3",
-        resources={"metadata": {"path": str(ROOT / "notebooks")}},
-    ).execute()
-    assert path.read_bytes() == original
+# Notebook 03 now reuses four explicit full archives. Its fresh-kernel checks
+# are in test_comparison.py. The bounded pilot runner is tested above; saved
+# pilot artifacts are neither changed nor loaded as full-comparison results.

@@ -1,0 +1,7 @@
+schema_version: 1
+# Only mock examples; the original live-test profiles remain separate.
+binary_connection: configs/connections/comparison_binary.yaml
+hybrid_connection: configs/connections/hybrid_v1.yaml
+models:
+  jev-9b: configs/models/jev-9b.yaml
+  jev-27b: configs/models/jev-27b.yaml

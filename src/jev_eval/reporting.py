@@ -9,6 +9,7 @@ import pandas as pd
 from jev_eval.config import PrerequisiteError
 from jev_eval.data import dataset_fingerprint
 from jev_eval.runner import require_writes, safe_output_path
+from jev_eval.tasks import primary_question, valid_batch_task
 
 
 def paired_pilot_plan_table(plan_9b, plan_27b):
@@ -22,8 +23,7 @@ def paired_pilot_plan_table(plan_9b, plan_27b):
             or len(project.models) != 1
             or project.models[0].hosted.app_id != app
             or len(plan.states) != 10
-            or len(plan.task.questions) != 1
-            or next(iter(plan.task.questions.values())).type != "noul"
+            or not valid_batch_task(project, plan.task)
             or dataset_fingerprint(plan.states) != plan.dataset_sha256
         ):
             raise PrerequisiteError(
@@ -54,7 +54,7 @@ def _pilot_rows(plan, result):
     ):
         raise PrerequisiteError("Results do not match this model's planned inputs and provenance.")
     expected = {state.study_id for state in plan.states}
-    question = next(iter(plan.task.questions))
+    question = primary_question(plan.project, plan.task)
     rows = {}
     for row in result.predictions:
         identifier = row.get("study_id")
@@ -66,9 +66,18 @@ def _pilot_rows(plan, result):
         ):
             raise PrerequisiteError("Pilot results contain duplicate, unexpected or invalid rows.")
         if row["status"] == "success":
-            probability = row.get("probabilities", {}).get(question)
+            probabilities = row.get("probabilities", {})
+            probability = probabilities.get(question)
             if (
-                isinstance(probability, bool)
+                set(probabilities) != set(plan.task.questions)
+                or any(
+                    isinstance(value, bool)
+                    or not isinstance(value, (float, int))
+                    or not math.isfinite(value)
+                    or not 0 <= value <= 1
+                    for value in probabilities.values()
+                )
+                or isinstance(probability, bool)
                 or not isinstance(probability, (float, int))
                 or not math.isfinite(probability)
                 or not 0 <= probability <= 1
@@ -117,7 +126,7 @@ def paired_pilot_probability_table(plan_9b, result_9b, plan_27b, result_27b):
     """Join by study ID in frozen order; retain failed/unknown/missing responses."""
     paired_pilot_plan_table(plan_9b, plan_27b)
     first, second = _pilot_rows(plan_9b, result_9b), _pilot_rows(plan_27b, result_27b)
-    question = next(iter(plan_9b.task.questions))
+    question = primary_question(plan_9b.project, plan_9b.task)
     rows = []
     for state in plan_9b.states:
         row = {"study_id": state.study_id}
@@ -161,7 +170,7 @@ def pilot_methods_summary(pilot, plan_9b, plan_27b, result_9b=None, result_27b=N
     interval = min(
         plan.project.workflow.inference_sh_pilot.min_request_interval_seconds for plan in plans
     )
-    question = next(iter(plan_9b.task.questions))
+    question = primary_question(plan_9b.project, plan_9b.task)
     text = (
         (
             "Completed pilot methods. "
@@ -182,8 +191,8 @@ def pilot_methods_summary(pilot, plan_9b, plan_27b, result_9b=None, result_27b=N
         + "autotrust/jev-9b and autotrust/jev-27b-v1-1 through the Inference.sh REST API. "
         f"Both models share the identical ordered sample and eligibility question '{question}'. "
         "Model inputs contain the original study ID, title and abstract; human inclusion "
-        "decisions and ITEM_ID are withheld. The protocol uses one state and one yes/no "
-        f"probability question per request, sequential execution, at least {interval:g} seconds "
+        "decisions and ITEM_ID are withheld. The protocol uses one state and "
+        f"{len(plan_9b.task.questions)} yes/no probability question(s) per request, sequential execution, at least {interval:g} seconds "
         "between request starts within each model run, at most ten attempts per model, and "
         "no automatic retries. Temperature, generation-token limits and an inference seed "
         "are not sent to this decision API.\n\n"
@@ -332,7 +341,7 @@ def validate_full_results(plan, result):
 
     expected = {state.study_id for state in plan.states}
     model = plan.project.models[0]
-    question = next(iter(plan.task.questions))
+    question = primary_question(plan.project, plan.task)
     records = result.predictions if result is not None else []
     seen, duplicates, unexpected = set(), 0, 0
     counts = {
@@ -376,9 +385,17 @@ def validate_full_results(plan, result):
             counts["successful"] += 1
             probs = record.get("probabilities")
             probability = probs.get(question) if isinstance(probs, dict) else None
+            all_valid = isinstance(probs, dict) and all(
+                not isinstance(value, bool)
+                and isinstance(value, (float, int))
+                and math.isfinite(value)
+                and 0 <= value <= 1
+                for value in probs.values()
+            )
             if (
-                not isinstance(probs, dict)
-                or set(probs) != {question}
+                not all_valid
+                or not isinstance(probs, dict)
+                or set(probs) != set(plan.task.questions)
                 or isinstance(probability, bool)
                 or not isinstance(probability, (float, int))
                 or not math.isfinite(probability)
@@ -452,6 +469,9 @@ def full_run_metadata_table(plans, results):
         records = result.predictions if result is not None else []
         rows.append(
             {
+                "approach": plan.project.evaluation.task.approach,
+                "prompt_version": plan.project.evaluation.task.prompt_version,
+                "questions_per_request": len(plan.task.questions),
                 "experiment_id": manifest.get(
                     "experiment_id", plan.project.workflow.inference_sh_full.experiment_id
                 ),
@@ -574,6 +594,56 @@ def plot_threshold_tradeoffs(curve, candidates, target_recall=0.95):
     return figure
 
 
+def plot_probability_curves(ranking):
+    """ROC and PR curves with explicit, scored-pair-only metric definitions."""
+    import matplotlib.pyplot as plt
+
+    available = ranking.table[ranking.table.status == "available"]
+    if available.empty:
+        return None
+    figure, axes = plt.subplots(1, 2, figsize=(13, 5))
+    axes[0].plot([0, 1], [0, 1], color="grey", linestyle="--", label="Chance ROC reference")
+    for row in available.itertuples():
+        roc = ranking.roc[ranking.roc.model == row.model]
+        pr = ranking.precision_recall[ranking.precision_recall.model == row.model]
+        line = axes[0].plot(
+            roc.false_positive_rate,
+            roc.true_positive_rate,
+            label=f"{row.model} (ROC AUC {row.roc_auc:.3f})",
+        )[0]
+        axes[1].step(
+            pr.recall,
+            pr.precision,
+            where="post",
+            color=line.get_color(),
+            label=f"{row.model} (AP {row.average_precision:.3f})",
+        )
+        axes[1].axhline(
+            row.scored_pair_prevalence,
+            color=line.get_color(),
+            linestyle=":",
+            alpha=0.6,
+            label=f"{row.model} prevalence {row.scored_pair_prevalence:.1%}",
+        )
+    axes[0].set(
+        xlabel="False positive rate (1 − specificity)",
+        ylabel="True positive rate (recall)",
+        title="ROC curve",
+    )
+    axes[1].set(
+        xlabel="Recall", ylabel="Precision (PPV)", title="Precision–recall curve (AP step display)"
+    )
+    for axis in axes:
+        axis.set(xlim=(0, 1), ylim=(0, 1.01))
+        axis.grid(alpha=0.2)
+        axis.legend(loc="best", fontsize="small")
+    figure.suptitle(
+        "INTERIM development results — scored human-labelled pairs only; no validation claim"
+    )
+    figure.tight_layout()
+    return figure
+
+
 def plot_recall_candidate_matrices(candidates):
     """Scored-pair matrices only: unavailable studies never become exclusions."""
     import matplotlib.pyplot as plt
@@ -581,8 +651,10 @@ def plot_recall_candidate_matrices(candidates):
     available = candidates[candidates.status == "attainable"]
     if available.empty:
         return None
-    figure, axes = plt.subplots(1, len(available), figsize=(6 * len(available), 5), squeeze=False)
-    for axis, row in zip(axes.flat, available.itertuples(), strict=True):
+    columns = min(2, len(available))
+    rows = math.ceil(len(available) / columns)
+    figure, axes = plt.subplots(rows, columns, figsize=(7 * columns, 5 * rows), squeeze=False)
+    for axis, row in zip(axes.flat, available.itertuples()):
         matrix = [[int(row.tn), int(row.fp)], [int(row.fn), int(row.tp)]]
         axis.imshow(matrix, cmap="Blues", vmin=0)
         for i in range(2):
@@ -608,6 +680,8 @@ def plot_recall_candidate_matrices(candidates):
             f"Scored recall {row.recall_scored:.2%}; cohort lower bound {row.recall_cohort_lower_bound:.2%}\n"
             f"{int(row.unscored_studies)} unscored studies are outside this matrix",
         )
+    for axis in list(axes.flat)[len(available) :]:
+        axis.set_visible(False)
     figure.suptitle("EXPLORATORY candidate confusion matrices — valid scored/reference pairs only")
     figure.tight_layout()
     return figure

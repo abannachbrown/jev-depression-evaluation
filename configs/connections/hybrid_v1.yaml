@@ -1,0 +1,15 @@
+schema_version: 1
+backend_config: configs/backends/inference_sh_hybrid.yaml
+model_config_file: configs/models/jev-9b.yaml
+state_file: data/examples/jev_citation_state.json
+task_config: configs/tasks/hybrid_screening_v1.yaml
+execution:
+  mode: mock
+  allow_paid_calls: false
+  max_states: 1
+  max_questions: 7
+screening:
+  binary_threshold: null
+output:
+  allow_writes: false
+  root: results/connections/hybrid-v1

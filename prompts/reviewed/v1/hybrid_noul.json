@@ -1,0 +1,60 @@
+{
+  "questions": {
+    "primary_research": {
+      "type": "noul",
+      "instructions": "Is this potentially a primary research article presenting original experimental data? Use only the supplied title and abstract, and assess only this eligibility domain. For screening, yes means the criterion is potentially satisfied or information is insufficient to exclude; no means the supplied text clearly establishes that the criterion is not satisfied. Do not interpret missing reporting as evidence of absence. Exclude clearly identified reviews, editorials, letters, comments, case reports and conference- or seminar-only abstracts. Do not require a particular population or disease model to satisfy this publication/study-design question; those domains are assessed separately.",
+      "criteria": {
+        "true": "Potential primary experimental research or insufficient information to exclude on publication/study-design grounds.",
+        "false": "Clearly an excluded publication type or not original experimental research."
+      }
+    },
+    "animal_study": {
+      "type": "noul",
+      "instructions": "Does the study potentially investigate living non-human animals? Use only the supplied title and abstract, and assess only this eligibility domain. For screening, yes means the criterion is potentially satisfied or information is insufficient to exclude; no means the supplied text clearly establishes that the criterion is not satisfied. Do not interpret missing reporting as evidence of absence. All species, ages and sexes are eligible. Mixed human/animal studies can satisfy this criterion when a live-animal investigation is present. Use of animal-derived cells or isolated tissues alone does not establish a live-animal investigation. Exclude only when the supplied text clearly establishes human-only research or no live-animal population.",
+      "criteria": {
+        "true": "Potential investigation of living non-human animals or insufficient population information to exclude.",
+        "false": "Clearly human-only research or no investigation of living non-human animals."
+      }
+    },
+    "in_vivo_experiment": {
+      "type": "noul",
+      "instructions": "Does the study potentially include an experimental manipulation in living non-human animals? Use only the supplied title and abstract, and assess only this eligibility domain. For screening, yes means the criterion is potentially satisfied or information is insufficient to exclude; no means the supplied text clearly establishes that the criterion is not satisfied. Do not interpret missing reporting as evidence of absence. Eligible manipulations include genetic, surgical, pharmacological, developmental or behavioural methods, alone or in combination. Model induction can itself be the intervention; a separate treatment arm is not required. Exclude only when the supplied text clearly establishes a purely observational investigation or work confined to ex vivo, in vitro or in silico methods. Additional laboratory components do not disqualify a study with an in vivo experimental component.",
+      "criteria": {
+        "true": "Potential in vivo experimental manipulation or insufficient information to exclude.",
+        "false": "Clearly no in vivo experimental manipulation in living non-human animals."
+      }
+    },
+    "depression_model": {
+      "type": "noul",
+      "instructions": "Does the study potentially investigate an animal model of depression or a depressive-like phenotype? Use only the supplied title and abstract, and assess only this eligibility domain. For screening, yes means the criterion is potentially satisfied or information is insufficient to exclude; no means the supplied text clearly establishes that the criterion is not satisfied. Do not interpret missing reporting as evidence of absence. Consider the authors' stated research aims, experimental manipulation and interpretation of the phenotype. Antidepressant administration alone does not establish a depression model. A behavioural test may support potential eligibility, but its presence alone does not conclusively establish the disease model. Retain ambiguous cases, including antidepressant-only behavioural studies when the depression-model component cannot be determined. Retain studies investigating a depression model or depressive-like phenotype alongside another psychiatric condition, including studies framed as bipolar disorder when a depression-related component is investigated. Do not exclude solely because the broader study is framed as another disorder. Exclude only when the supplied text clearly establishes that another condition is investigated without a depression-related component. Distinguish depressive-like phenotypes from unrelated uses of depression, such as respiratory depression. Include potentially relevant behavioural paradigms, model-characterisation and treatment studies. Do not require a specific behavioural test or behavioural outcome; other outcome types may be investigated in an eligible depression model.",
+      "criteria": {
+        "true": "Potential depression model or depressive-like phenotype, including a depression component alongside another condition, or insufficient information to exclude.",
+        "false": "Clearly no investigated depression model or depressive-like phenotype; antidepressant use or another condition alone is not sufficient evidence."
+      }
+    },
+    "control_group": {
+      "type": "noul",
+      "instructions": "Does the study potentially include a suitable comparator? Use only the supplied title and abstract, and assess only this eligibility domain. For screening, yes means the criterion is potentially satisfied or information is insufficient to exclude; no means the supplied text clearly establishes that the criterion is not satisfied. Do not interpret missing reporting as evidence of absence. Suitable comparators may include animals not exposed to the model-induction method, sham or placebo counterparts, animals with the same depression model but without the tested treatment, or untreated/vehicle counterparts in intervention experiments. No comparator described is not the same as an explicit statement that no suitable comparator exists. This is a secondary assessment: its probability or decision must not independently cause exclusion in the primary hybrid classification.",
+      "criteria": {
+        "true": "A potentially suitable comparator is present or comparator reporting is insufficient to rule one out.",
+        "false": "The supplied text clearly establishes that no suitable comparator is present."
+      }
+    },
+    "eligible_outcomes": {
+      "type": "noul",
+      "instructions": "Does the study potentially meet the review's outcome-eligibility requirements? Use only the supplied title and abstract, and assess only this eligibility domain. For screening, yes means the criterion is potentially satisfied or information is insufficient to exclude; no means the supplied text clearly establishes that the criterion is not satisfied. Do not interpret missing reporting as evidence of absence. Eligible categories include behavioural, anatomical or structural, electrophysiological, histological and neurochemical measures. Genomic, proteomic or metabolomic measures may accompany eligible measures. A metabolic primary outcome, or only genomic, proteomic, metabolic or metabolomic outcomes, fails the specified outcome requirements. Do not infer that other outcomes were absent simply because the abstract does not describe them. This is a secondary assessment: its probability or decision must not independently cause exclusion in the primary hybrid classification.",
+      "criteria": {
+        "true": "The outcome requirements are potentially met or reporting is insufficient to establish an outcome-based failure.",
+        "false": "The supplied text clearly establishes a metabolic primary outcome or only ineligible outcome types."
+      }
+    },
+    "overall_eligibility": {
+      "type": "noul",
+      "instructions": "Should this citation be retained for full-text assessment in a systematic review of experimental animal models of depression? Use only the supplied title and abstract. Retain potentially eligible primary experimental research in living non-human animals that involves an in vivo experimental manipulation and investigates a depression model or depressive-like phenotype. Model-characterisation and treatment studies may be eligible; a separate treatment arm is not required. All animal species, ages and sexes are eligible. Exclude clearly identified reviews, editorials, letters, comments, case reports and conference- or seminar-only abstracts. Exclude human-only research, purely observational investigations without experimental manipulation, and studies confined to ex vivo, in vitro or in silico work. Mixed human/animal studies or studies with additional laboratory components remain potentially eligible when a qualifying in vivo animal investigation is present. Consider the authors' stated research aims, experimental manipulation and interpretation of the phenotype. Antidepressant administration alone does not establish a depression model. A behavioural test may support potential eligibility, but its presence alone does not conclusively establish the disease model. Retain ambiguous cases, including antidepressant-only behavioural studies when the depression-model component cannot be determined. Retain studies investigating a depression model or depressive-like phenotype alongside another psychiatric condition, including studies framed as bipolar disorder when a depression-related component is investigated. Do not exclude solely because the broader study is framed as another disorder. Exclude only when the supplied text clearly establishes that another condition is investigated without a depression-related component. Distinguish depressive-like phenotypes from unrelated uses of depression, such as respiratory depression. Do not require a particular behavioural test or an explicitly reported model-induction method when eligibility remains uncertain. Assess comparator and outcome eligibility at full-text screening; neither control-group nor outcome grounds may independently cause exclusion in this primary title-and-abstract classification. Missing or ambiguous reporting favours retention. Retain uncertain cases unless another primary screening criterion clearly establishes ineligibility.",
+      "criteria": {
+        "true": "Retain for full-text assessment, including potentially eligible studies and citations with uncertain eligibility.",
+        "false": "Clearly ineligible on primary publication type, live-animal population, in vivo experimental manipulation or depression-model grounds."
+      }
+    }
+  }
+}

@@ -52,6 +52,27 @@ def test_malformed_hybrid_is_preserved_and_rejected(project):
     assert list(binary.questions) == ["retain_for_fulltext"]
 
 
+def test_reviewed_templates_have_identical_overall_questions_and_seven_nouls(project):
+    folder = project.root / "prompts/reviewed/v1"
+    binary = validate_task_template(folder / "binary_noul.json")
+    hybrid = validate_task_template(folder / "hybrid_noul.json")
+    assert list(binary.questions) == ["retain_for_fulltext"]
+    assert set(hybrid.questions) == {
+        "primary_research",
+        "animal_study",
+        "in_vivo_experiment",
+        "depression_model",
+        "control_group",
+        "eligible_outcomes",
+        "overall_eligibility",
+    }
+    assert all(question.type == "noul" for question in hybrid.questions.values())
+    assert (
+        binary.questions["retain_for_fulltext"].model_dump()
+        == hybrid.questions["overall_eligibility"].model_dump()
+    )
+
+
 def test_invalid_configuration_is_redacted(project):
     path = project.root / "configs/notebooks.yaml"
     path.write_text(path.read_text() + '\nunexpected: "PRIVATE VALUE"\n')

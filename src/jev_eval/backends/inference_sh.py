@@ -18,6 +18,7 @@ from jev_eval.backends.base import BackendError
 from jev_eval.backends.hosted.client import retry_after_seconds
 from jev_eval.config import InferenceShSettings, PrerequisiteError
 from jev_eval.tasks import (
+    HYBRID_QUESTIONS,
     ChoiceAnswer,
     NormalizedResponse,
     Probability,
@@ -77,8 +78,12 @@ class _Envelope(_WireModel):
     data: _Task
 
 
-def build_decision_input(state, task):
-    if len(task.questions) != 1:
+def build_decision_input(state, task, *, max_questions=1):
+    if len(task.questions) != 1 and not (
+        max_questions == 7
+        and set(task.questions) == set(HYBRID_QUESTIONS)
+        and all(q.type == "noul" for q in task.questions.values())
+    ):
         raise PrerequisiteError("Connection tests require exactly one decision question.")
     groups = {"noul": "nouls", "choice": "choices", "score": "scores"}
     payload = {"state": state.model_dump()}
@@ -86,7 +91,7 @@ def build_decision_input(state, task):
         body = question.model_dump(exclude={"type"}, exclude_none=True)
         if not body.get("criteria"):
             body.pop("criteria", None)
-        payload[groups[question.type]] = [{"id": identifier, **body}]
+        payload.setdefault(groups[question.type], []).append({"id": identifier, **body})
     return payload
 
 
@@ -158,7 +163,7 @@ class InferenceShBackend:
             raise PrerequisiteError("Select a supported JEV app_id from the model YAML.")
         payload = {
             "app": model.hosted.app_id,
-            "input": build_decision_input(state, task),
+            "input": build_decision_input(state, task, max_questions=self.settings.max_questions),
             "wait": self.settings.wait,
         }
         started = time.monotonic()

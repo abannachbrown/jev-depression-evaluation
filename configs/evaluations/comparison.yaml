@@ -1,0 +1,8 @@
+schema_version: 1
+# Explicit archive selection, independent of default_approach in screening/v1.yaml.
+# These binary runs predate reviewed v1 wording. Do not relabel or rerun them.
+binary_analysis: configs/evaluations/analysis_full.yaml
+hybrid_analysis: configs/evaluations/analysis_hybrid_v1.yaml
+target_recall: 0.95
+allow_writes: false
+output_root: results/evaluation/four-arm-comparison
